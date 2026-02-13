@@ -114,6 +114,7 @@ Respond ONLY with valid JSON, no extra text.
 # Client functions
 # ---------------------------------------------------------------------------
 
+
 def generate(prompt: str, system_prompt: str = SYSTEM_MEDICAL) -> str:
     """Send a prompt to Ollama and return the raw text response."""
     response = ollama.chat(
@@ -171,6 +172,7 @@ def _extract_json(text: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # High-level clinical functions
 # ---------------------------------------------------------------------------
+
 
 def expand_note(note: str) -> dict[str, Any]:
     """Expand a doctor's shorthand note into structured clinical data."""

@@ -28,4 +28,6 @@ def sample_note() -> str:
 
 @pytest.fixture
 def sample_note_en() -> str:
-    return "Pt 72M, SOB on exertion, PND, bilateral LE edema. BP 180/110. On losartan 50mg, HCTZ 25mg."
+    return (
+        "Pt 72M, SOB on exertion, PND, bilateral LE edema. BP 180/110. On losartan 50mg, HCTZ 25mg."
+    )
