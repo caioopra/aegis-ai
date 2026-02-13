@@ -24,7 +24,11 @@ env/
 
 # Data (generated / large files)
 data/synthea/
+!data/synthea/sample_*.json
 *.json.bak
+
+# Synthea JAR download
+.synthea/
 
 # Qdrant local storage
 qdrant_storage/
