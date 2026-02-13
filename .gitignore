@@ -30,6 +30,9 @@ data/synthea/
 # Synthea JAR download
 .synthea/
 
+# Personal notes / study documentation
+notes/
+
 # Qdrant local storage
 qdrant_storage/
 
