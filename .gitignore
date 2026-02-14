@@ -36,6 +36,9 @@ notes/
 # Qdrant local storage
 qdrant_storage/
 
+# Generated docs
+docs/
+
 # OS
 .DS_Store
 Thumbs.db

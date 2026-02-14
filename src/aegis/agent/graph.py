@@ -42,7 +42,14 @@ def build_graph() -> StateGraph:
 
     # Wire edges
     graph.add_edge("parse_note", "decide_retrieval")
-    graph.add_conditional_edges("decide_retrieval", _route_retrieval)
+    graph.add_conditional_edges(
+        "decide_retrieval",
+        _route_retrieval,
+        {
+            "retrieve_guidelines": "retrieve_guidelines",
+            "fetch_patient_data": "fetch_patient_data",
+        },
+    )
     graph.add_edge("retrieve_guidelines", "fetch_patient_data")
     graph.add_edge("fetch_patient_data", "generate_report")
     graph.add_edge("generate_report", "evaluate_report")
