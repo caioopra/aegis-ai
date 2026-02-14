@@ -23,7 +23,7 @@ env/
 *.swo
 
 # Data (generated / large files)
-data/synthea/
+data/synthea/*
 !data/synthea/sample_*.json
 *.json.bak
 
