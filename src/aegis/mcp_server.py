@@ -31,8 +31,7 @@ DRUG_INTERACTIONS: dict[frozenset[str], str] = {
         "procedimentos com contraste iodado."
     ),
     frozenset({"metformina", "álcool"}): (
-        "Risco aumentado de acidose lática. Orientar paciente a evitar "
-        "consumo excessivo de álcool."
+        "Risco aumentado de acidose lática. Orientar paciente a evitar consumo excessivo de álcool."
     ),
     frozenset({"losartana", "ibuprofeno"}): (
         "AINEs reduzem o efeito anti-hipertensivo e aumentam risco de "
@@ -157,9 +156,7 @@ def _format_observation(obs: Resource) -> str:
             comp_text = comp.get("code", {}).get("text", "")
             comp_vq = comp.get("valueQuantity", {})
             if comp_vq:
-                comp_parts.append(
-                    f"{comp_text}: {comp_vq['value']} {comp_vq.get('unit', '')}"
-                )
+                comp_parts.append(f"{comp_text}: {comp_vq['value']} {comp_vq.get('unit', '')}")
         return f"{text} — {'; '.join(comp_parts)}"
 
     return text
@@ -268,10 +265,7 @@ def verificar_interacao_medicamentosa(medicamento_a: str, medicamento_b: str) ->
     interaction = DRUG_INTERACTIONS.get(pair)
 
     if interaction:
-        return (
-            f"⚠ Interação encontrada entre {medicamento_a} e {medicamento_b}:\n"
-            f"{interaction}"
-        )
+        return f"⚠ Interação encontrada entre {medicamento_a} e {medicamento_b}:\n{interaction}"
     return (
         f"Nenhuma interação conhecida entre {medicamento_a} e {medicamento_b}.\n"
         "Nota: esta verificação cobre apenas interações comuns pré-cadastradas. "

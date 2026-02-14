@@ -79,10 +79,7 @@ def chunk_text(
         separators=["\n\n", "\n", ". ", " ", ""],
     )
     splits = splitter.split_text(text)
-    return [
-        {"text": chunk, "source": source, "chunk_index": i}
-        for i, chunk in enumerate(splits)
-    ]
+    return [{"text": chunk, "source": source, "chunk_index": i} for i, chunk in enumerate(splits)]
 
 
 def chunk_documents(
@@ -94,8 +91,10 @@ def chunk_documents(
     all_chunks: list[dict[str, Any]] = []
     for doc in docs:
         chunks = chunk_text(
-            doc["text"], doc["source"],
-            chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+            doc["text"],
+            doc["source"],
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
         )
         all_chunks.extend(chunks)
     return all_chunks
@@ -163,7 +162,11 @@ def store_chunks(
         PointStruct(
             id=i,
             vector=chunk["embedding"],
-            payload={"text": chunk["text"], "source": chunk["source"], "chunk_index": chunk["chunk_index"]},
+            payload={
+                "text": chunk["text"],
+                "source": chunk["source"],
+                "chunk_index": chunk["chunk_index"],
+            },
         )
         for i, chunk in enumerate(chunks)
     ]

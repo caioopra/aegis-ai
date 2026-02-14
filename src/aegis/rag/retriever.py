@@ -59,7 +59,5 @@ def format_context(results: list[dict[str, Any]]) -> str:
 
     sections = []
     for i, r in enumerate(results, 1):
-        sections.append(
-            f"[Fonte: {r['source']} | Relevância: {r['score']:.2f}]\n{r['text']}"
-        )
+        sections.append(f"[Fonte: {r['source']} | Relevância: {r['score']:.2f}]\n{r['text']}")
     return "\n\n---\n\n".join(sections)

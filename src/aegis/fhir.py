@@ -62,9 +62,7 @@ class FHIRStore:
 
             patient_id = self._resolve_patient_id(resource)
             if patient_id and patient_id in self._patient_index:
-                self._patient_index[patient_id].setdefault(
-                    res_type, []
-                ).append(resource)
+                self._patient_index[patient_id].setdefault(res_type, []).append(resource)
 
     def load_directory(self, directory: Path | None = None) -> None:
         """Load all ``*.json`` Bundle files from a directory."""

@@ -257,7 +257,9 @@ class TestFormatContext:
         assert "Nenhuma diretriz" in result
 
     def test_formats_single_result(self):
-        results = [{"text": "Texto da diretriz.", "source": "has.txt", "chunk_index": 0, "score": 0.85}]
+        results = [
+            {"text": "Texto da diretriz.", "source": "has.txt", "chunk_index": 0, "score": 0.85}
+        ]
         output = format_context(results)
         assert "has.txt" in output
         assert "0.85" in output

@@ -201,7 +201,13 @@ class TestSyntheaBundleFormat:
                         "resourceType": "Condition",
                         "id": "11111111-2222-3333-4444-555555555555",
                         "code": {
-                            "coding": [{"system": "http://snomed.info/sct", "code": "44054006", "display": "Diabetes mellitus type 2"}],
+                            "coding": [
+                                {
+                                    "system": "http://snomed.info/sct",
+                                    "code": "44054006",
+                                    "display": "Diabetes mellitus type 2",
+                                }
+                            ],
                             "text": "Diabetes mellitus type 2",
                         },
                         "subject": {"reference": f"urn:uuid:{patient_uuid}"},
@@ -296,7 +302,13 @@ class TestEdgeCases:
             "type": "collection",
             "entry": [
                 {"resource": {"resourceType": "Patient", "id": "p1", "name": [{"given": ["X"]}]}},
-                {"resource": {"resourceType": "Observation", "id": "obs-no-subj", "code": {"text": "test"}}},
+                {
+                    "resource": {
+                        "resourceType": "Observation",
+                        "id": "obs-no-subj",
+                        "code": {"text": "test"},
+                    }
+                },
             ],
         }
         path = tmp_path / "no_subj.json"
