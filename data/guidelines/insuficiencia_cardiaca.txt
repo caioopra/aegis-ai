@@ -1,0 +1,88 @@
+Diretriz Brasileira de Insuficiência Cardíaca — Resumo Simplificado
+(Baseado nas Diretrizes da Sociedade Brasileira de Cardiologia)
+
+1. DEFINIÇÃO E CLASSIFICAÇÃO
+
+A insuficiência cardíaca (IC) é uma síndrome clínica na qual o coração é incapaz
+de bombear sangue suficiente para atender às necessidades metabólicas do organismo,
+ou só o faz com pressões de enchimento elevadas.
+
+Classificação por fração de ejeção (FEVE):
+- ICFEr (IC com fração de ejeção reduzida): FEVE ≤ 40%
+- ICFEi (IC com fração de ejeção intermediária): FEVE 41-49%
+- ICFEp (IC com fração de ejeção preservada): FEVE ≥ 50%
+
+Classificação funcional (NYHA):
+- Classe I: sem limitação nas atividades habituais
+- Classe II: limitação leve; sintomas com esforços habituais
+- Classe III: limitação acentuada; sintomas com esforços menores que os habituais
+- Classe IV: sintomas em repouso
+
+2. DIAGNÓSTICO
+
+Sintomas típicos:
+- Dispneia aos esforços (sintoma mais comum)
+- Ortopneia e dispneia paroxística noturna (DPN)
+- Edema de membros inferiores
+- Fadiga e intolerância ao exercício
+- Turgência jugular
+
+Exames complementares:
+- Ecocardiograma: avaliação da FEVE e estrutura cardíaca
+- BNP ou NT-proBNP: marcadores de estresse miocárdico
+- Radiografia de tórax: cardiomegalia, congestão pulmonar
+- ECG: distúrbios de condução, sobrecarga de câmaras
+
+3. TRATAMENTO DA ICFEr (FEVE ≤ 40%)
+
+3.1 Terapia quádrupla — os quatro pilares:
+Todos os pacientes com ICFEr devem receber (salvo contraindicações):
+- IECA ou BRA (ou sacubitril/valsartana se tolerado)
+- Betabloqueador: carvedilol, bisoprolol, metoprolol succinato
+- Antagonista mineralocorticoide: espironolactona 25-50 mg/dia
+- Inibidor de SGLT2: dapagliflozina ou empagliflozina
+
+3.2 Diuréticos de alça (furosemida):
+- Para alívio de sintomas congestivos (edema, dispneia)
+- Usar a menor dose eficaz
+- Não são terapia modificadora de doença (não reduzem mortalidade)
+- Monitorar função renal e eletrólitos
+
+3.3 Digitálicos (digoxina):
+- Considerar se sintomas persistentes apesar de terapia otimizada
+- Manter nível sérico entre 0,5-0,9 ng/mL
+- Atenção à interação com diuréticos (hipocalemia potencializa toxicidade)
+
+4. TRATAMENTO NÃO FARMACOLÓGICO
+
+- Restrição de sódio: 2-3 g/dia
+- Restrição hídrica: 1-1,5 L/dia em IC descompensada
+- Atividade física supervisionada (reabilitação cardíaca)
+- Peso diário: ganho > 2 kg em 3 dias sugere retenção hídrica
+- Vacinação: influenza anual e pneumocócica
+
+5. SITUAÇÕES ESPECIAIS
+
+5.1 IC e Hipertensão:
+- IECA/BRA + betabloqueador já fazem parte do tratamento da IC
+- Meta: PAS < 130 mmHg
+- Evitar BCC não diidropiridínicos (verapamil, diltiazem) na ICFEr
+
+5.2 IC e Diabetes:
+- iSGLT2 reduzem hospitalização por IC mesmo em não diabéticos
+- Metformina pode ser usada (exceto em IC descompensada)
+- Evitar glitazonas (pioglitazona, rosiglitazona) — causam retenção hídrica
+
+5.3 IC e Fibrilação atrial:
+- Anticoagulação com DOACs ou varfarina
+- Controle de frequência com betabloqueador ou digoxina
+- NÃO usar antiarrítmicos classe IC (flecainida, propafenona)
+
+6. SINAIS DE ALARME (descompensação)
+
+O paciente deve procurar atendimento médico imediato se:
+- Dispneia em repouso ou piora progressiva
+- Ganho de peso > 2 kg em 3 dias
+- Edema de membros inferiores novo ou piora
+- Necessidade de dormir sentado
+- Redução do volume urinário

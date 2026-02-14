@@ -1,0 +1,82 @@
+Diretriz Brasileira de Diabetes Mellitus Tipo 2 — Resumo Simplificado
+(Baseado nas Diretrizes da Sociedade Brasileira de Diabetes)
+
+1. DEFINIÇÃO E DIAGNÓSTICO
+
+O diabetes mellitus tipo 2 (DM2) é uma doença metabólica crônica caracterizada
+por hiperglicemia resultante de defeitos na secreção e/ou ação da insulina.
+
+Critérios diagnósticos (qualquer um dos seguintes, confirmado em duas ocasiões):
+- Glicemia de jejum ≥ 126 mg/dL
+- Glicemia 2h após TOTG 75g ≥ 200 mg/dL
+- Hemoglobina glicada (HbA1c) ≥ 6,5%
+- Glicemia ao acaso ≥ 200 mg/dL com sintomas clássicos (poliúria, polidipsia, perda de peso)
+
+Pré-diabetes (risco aumentado):
+- Glicemia de jejum 100-125 mg/dL
+- Glicemia 2h pós-TOTG 140-199 mg/dL
+- HbA1c 5,7-6,4%
+
+2. TRATAMENTO NÃO FARMACOLÓGICO
+
+- Dieta equilibrada com controle de carboidratos
+- Atividade física: 150 min/semana de exercício aeróbico moderado
+- Perda de peso: redução de 5-10% do peso corporal melhora significativamente
+  o controle glicêmico
+- Educação em diabetes e automonitoramento da glicemia capilar
+
+3. TRATAMENTO FARMACOLÓGICO
+
+3.1 Primeira linha:
+- Metformina 500-2550 mg/dia (iniciar com dose baixa, titular gradualmente)
+- Contraindicações da metformina:
+  * Taxa de filtração glomerular (TFG) < 30 mL/min
+  * Insuficiência hepática grave
+  * Uso de contraste iodado (suspender 48h antes e após)
+  * Alcoolismo ativo
+  * Insuficiência cardíaca descompensada
+
+3.2 Segunda linha (adicionar à metformina):
+- Inibidores de SGLT2: dapagliflozina, empagliflozina
+  * Benefício cardiovascular e renal comprovado
+  * Preferir em pacientes com insuficiência cardíaca ou doença renal crônica
+- Agonistas do receptor de GLP-1: liraglutida, semaglutida, dulaglutida
+  * Benefício cardiovascular comprovado
+  * Promovem perda de peso
+- Inibidores de DPP-4: sitagliptina, vildagliptina, linagliptina
+  * Neutros em relação ao peso
+  * Boa tolerabilidade
+
+3.3 Insulinoterapia:
+- Indicada quando: HbA1c > 9% com sintomas, falha de medicamentos orais
+- Iniciar com insulina basal (NPH noturna ou análogos de longa ação)
+- Dose inicial: 10 UI ou 0,1-0,2 UI/kg/dia
+- Titular a cada 3-7 dias conforme glicemia de jejum
+
+4. METAS DE CONTROLE GLICÊMICO
+
+- HbA1c < 7,0% (meta geral para adultos)
+- HbA1c < 6,5% (pacientes jovens, sem complicações, diagnóstico recente)
+- HbA1c < 8,0% (idosos frágeis, expectativa de vida limitada)
+- Glicemia de jejum: 80-130 mg/dL
+- Glicemia pós-prandial (2h): < 180 mg/dL
+
+5. COMPLICAÇÕES E RASTREAMENTO
+
+5.1 Complicações microvasculares:
+- Retinopatia diabética: fundo de olho anual
+- Nefropatia diabética: relação albumina/creatinina urinária anual + TFG
+- Neuropatia diabética: exame dos pés a cada consulta
+
+5.2 Complicações macrovasculares:
+- Doença cardiovascular (principal causa de morte no DM2)
+- Avaliar risco cardiovascular global
+- Controle de fatores de risco: HAS, dislipidemia, tabagismo
+
+6. INTERAÇÕES MEDICAMENTOSAS RELEVANTES
+
+- Metformina + álcool: risco de acidose lática
+- Metformina + contraste iodado: suspender temporariamente
+- Sulfonilureias + betabloqueadores: mascaram sintomas de hipoglicemia
+- Insulina + IECA: podem potencializar hipoglicemia
+- iSGLT2 + diuréticos: risco de desidratação e hipotensão

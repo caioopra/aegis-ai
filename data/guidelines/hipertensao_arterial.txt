@@ -1,0 +1,76 @@
+Diretriz Brasileira de Hipertensão Arterial — Resumo Simplificado
+(Baseado nas Diretrizes da Sociedade Brasileira de Cardiologia)
+
+1. DEFINIÇÃO E CLASSIFICAÇÃO
+
+A hipertensão arterial sistêmica (HAS) é uma condição clínica multifatorial
+caracterizada por elevação sustentada dos níveis pressóricos. O diagnóstico é
+estabelecido quando a pressão arterial sistólica (PAS) é igual ou superior a
+140 mmHg e/ou a pressão arterial diastólica (PAD) é igual ou superior a 90 mmHg,
+em medidas repetidas e em condições adequadas.
+
+Classificação da pressão arterial em adultos:
+- Ótima: PAS < 120 mmHg e PAD < 80 mmHg
+- Normal: PAS 120-129 mmHg e PAD 80-84 mmHg
+- Pré-hipertensão: PAS 130-139 mmHg e PAD 85-89 mmHg
+- Hipertensão estágio 1: PAS 140-159 mmHg e/ou PAD 90-99 mmHg
+- Hipertensão estágio 2: PAS 160-179 mmHg e/ou PAD 100-109 mmHg
+- Hipertensão estágio 3: PAS ≥ 180 mmHg e/ou PAD ≥ 110 mmHg
+
+2. TRATAMENTO NÃO FARMACOLÓGICO
+
+Modificações no estilo de vida são recomendadas para todos os pacientes
+hipertensos, independentemente do estágio:
+- Redução do peso corporal (IMC entre 18,5 e 24,9 kg/m²)
+- Dieta DASH (rica em frutas, vegetais, laticínios desnatados)
+- Redução do consumo de sódio (máximo 2g/dia de sódio ou 5g/dia de sal)
+- Atividade física regular (150 minutos/semana de exercício aeróbico moderado)
+- Moderação no consumo de álcool
+- Cessação do tabagismo
+
+3. TRATAMENTO FARMACOLÓGICO
+
+3.1 Primeira linha de tratamento:
+- Inibidores da ECA (IECA): enalapril, ramipril, captopril
+- Bloqueadores do receptor de angiotensina (BRA): losartana, valsartana, candesartana
+- Bloqueadores dos canais de cálcio (BCC): anlodipino, nifedipina
+- Diuréticos tiazídicos: hidroclorotiazida, clortalidona, indapamida
+
+3.2 Hipertensão estágio 1 com risco cardiovascular baixo a moderado:
+- Iniciar com monoterapia (um dos medicamentos de primeira linha)
+- Reavaliar em 3 meses
+- Se não atingir meta, associar segundo medicamento
+
+3.3 Hipertensão estágio 2 ou risco cardiovascular alto:
+- Iniciar com terapia combinada (dois medicamentos de classes diferentes)
+- Combinações preferenciais: IECA ou BRA + BCC, IECA ou BRA + diurético tiazídico
+- NÃO associar IECA com BRA (duplo bloqueio do SRAA — risco de hipercalemia e
+  insuficiência renal)
+
+3.4 Metas de pressão arterial:
+- Geral: PAS < 140 mmHg e PAD < 90 mmHg
+- Pacientes de alto risco cardiovascular: PAS < 130 mmHg e PAD < 80 mmHg
+- Idosos frágeis (≥ 80 anos): PAS < 150 mmHg
+
+4. SITUAÇÕES ESPECIAIS
+
+4.1 HAS e Diabetes mellitus:
+- Meta: PAS < 130 mmHg e PAD < 80 mmHg
+- Preferir IECA ou BRA (nefroproteção)
+- Evitar betabloqueadores como monoterapia (mascaram hipoglicemia)
+
+4.2 HAS e Insuficiência cardíaca:
+- IECA ou BRA + betabloqueador + diurético de alça (furosemida)
+- Considerar espironolactona se sintomas persistentes
+- Meta: PAS < 130 mmHg
+
+4.3 HAS e Doença renal crônica:
+- Preferir IECA ou BRA
+- Meta: PAS < 130 mmHg e PAD < 80 mmHg
+- Monitorar potássio sérico e função renal
+
+5. MONITORAMENTO
+
+- Consultas regulares a cada 3-6 meses após controle adequado
+- Avaliação anual: função renal, eletrólitos, perfil lipídico, glicemia
+- MAPA ou MRPA para diagnóstico e acompanhamento
