@@ -36,6 +36,9 @@ notes/
 # Qdrant local storage
 qdrant_storage/
 
+# Generated BM25 statistics
+data/bm25_stats.json
+
 # Generated docs
 docs/
 

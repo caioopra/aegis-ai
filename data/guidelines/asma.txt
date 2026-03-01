@@ -1,0 +1,99 @@
+Diretriz Brasileira de Asma — Resumo Simplificado
+(Baseado nas Diretrizes da Sociedade Brasileira de Pneumologia e Tisiologia)
+
+1. DEFINIÇÃO
+
+A asma é uma doença inflamatória crônica das vias aéreas inferiores,
+caracterizada por hiper-responsividade brônquica e obstrução variável ao fluxo
+aéreo. Manifesta-se por episódios recorrentes de sibilância, dispneia, opressão
+torácica e tosse, particularmente à noite e pela manhã.
+
+2. CLASSIFICAÇÃO DE GRAVIDADE
+
+Classificação inicial (paciente sem tratamento):
+- Intermitente: sintomas ≤ 2x/semana, despertares noturnos ≤ 2x/mês, VEF1 ≥ 80%
+- Persistente leve: sintomas > 2x/semana (não diários), despertares 3-4x/mês, VEF1 ≥ 80%
+- Persistente moderada: sintomas diários, despertares > 1x/semana, VEF1 60-80%
+- Persistente grave: sintomas contínuos, despertares frequentes, VEF1 < 60%
+
+Classificação por nível de controle (paciente em tratamento):
+- Controlada: sintomas diurnos ≤ 2x/semana, sem limitação de atividades, sem despertares
+- Parcialmente controlada: 1-2 critérios presentes
+- Não controlada: ≥ 3 critérios presentes
+
+3. DIAGNÓSTICO
+
+O diagnóstico é baseado em:
+- Quadro clínico compatível (sibilância, dispneia, tosse, opressão torácica)
+- Espirometria com prova broncodilatadora positiva (aumento do VEF1 ≥ 200 mL e ≥ 12%)
+- Variabilidade do pico de fluxo expiratório (PFE) > 20% em medidas seriadas
+- Teste de broncoprovocação com metacolina (quando espirometria normal)
+
+4. TRATAMENTO FARMACOLÓGICO — ETAPAS (STEPS)
+
+Etapa 1 (Intermitente):
+- CI em dose baixa + formoterol sob demanda (estratégia preferida)
+- Alternativa: SABA sob demanda (uso isolado não é mais recomendado como preferencial)
+
+Etapa 2 (Persistente leve):
+- CI em dose baixa diário + SABA sob demanda
+- Alternativa: CI + formoterol sob demanda
+- Alternativa: antileucotrieno (montelucaste) diário
+
+Etapa 3 (Persistente moderada):
+- CI em dose baixa + LABA diário (budesonida/formoterol ou fluticasona/salmeterol)
+- Alternativa: CI em dose média
+
+Etapa 4 (Persistente moderada-grave):
+- CI em dose média-alta + LABA
+- Adicionar: tiotrópio ou antileucotrieno se controle insuficiente
+
+Etapa 5 (Persistente grave):
+- CI em dose alta + LABA + tiotrópio
+- Considerar: biológicos (omalizumabe, mepolizumabe, benralizumabe, dupilumabe)
+- Considerar: corticoide oral em dose baixa como último recurso
+
+Medicamentos e doses de CI (equivalência em beclometasona):
+- Dose baixa: 200-500 mcg/dia
+- Dose média: 500-1000 mcg/dia
+- Dose alta: > 1000 mcg/dia
+
+5. TRATAMENTO NÃO FARMACOLÓGICO
+
+- Educação sobre a doença e técnica inalatória
+- Plano de ação escrito para crises
+- Controle ambiental: evitar alérgenos (ácaros, fungos, pelos de animais)
+- Cessação do tabagismo (ativo e passivo)
+- Atividade física regular (exercício não é contraindicado)
+- Vacinação contra influenza e pneumococo
+
+6. CRISE ASMÁTICA (EXACERBAÇÃO)
+
+Sinais de gravidade:
+- Fala entrecortada, uso de musculatura acessória, FR > 30 irpm
+- FC > 120 bpm, SpO2 < 90%, PFE < 50% do previsto
+- Cianose, confusão mental, tórax silencioso (crise grave/quase fatal)
+
+Tratamento da crise:
+- SABA (salbutamol) inalatório: 4-8 jatos a cada 20 min na 1ª hora
+- Corticoide sistêmico precoce: prednisona 40-60 mg VO ou hidrocortisona IV
+- Brometo de ipratrópio: associar em crises moderadas-graves
+- Oxigenoterapia: manter SpO2 93-95% (adultos)
+- Considerar sulfato de magnésio IV em crises graves refratárias
+
+7. SITUAÇÕES ESPECIAIS
+
+- Asma + rinite alérgica: tratar concomitantemente (corticoide nasal)
+- Asma + DRGE: tratar refluxo se sintomático
+- Asma + obesidade: perda de peso melhora controle da asma
+- Asma na gestação: manter tratamento (CI são seguros); asma não controlada
+  representa maior risco que os medicamentos
+- Asma induzida por exercício: SABA ou CI+formoterol antes do exercício
+
+8. MONITORAMENTO
+
+- Reavaliação a cada 1-3 meses até controle, depois a cada 3-6 meses
+- Espirometria pelo menos anual
+- Avaliar técnica inalatória e adesão em toda consulta
+- Step-up se não controlada após verificar adesão e técnica
+- Step-down após 3 meses de controle: reduzir CI em 25-50%

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # Data paths (relative to project root)
     synthea_data_dir: Path = Path("data/synthea")
     guidelines_dir: Path = Path("data/guidelines")
+    bm25_stats_path: Path = Path("data/bm25_stats.json")
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

@@ -8,9 +8,16 @@ from typing import Any
 import ollama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    PointStruct,
+    SparseVector,
+    SparseVectorParams,
+    VectorParams,
+)
 
 from aegis.config import settings
+from aegis.rag.sparse import BM25Vectorizer
 
 # ---------------------------------------------------------------------------
 # Document loading
@@ -137,15 +144,17 @@ def ensure_collection(
     collection: str | None = None,
     vector_size: int = EMBEDDING_DIM,
 ) -> None:
-    """Create the Qdrant collection if it doesn't exist."""
+    """Create the Qdrant collection with dense + sparse vectors if it doesn't exist."""
     collection = collection or settings.qdrant_collection
     if not client.collection_exists(collection):
         client.create_collection(
             collection_name=collection,
-            vectors_config=VectorParams(
-                size=vector_size,
-                distance=Distance.COSINE,
-            ),
+            vectors_config={
+                "dense": VectorParams(size=vector_size, distance=Distance.COSINE),
+            },
+            sparse_vectors_config={
+                "sparse": SparseVectorParams(),
+            },
         )
 
 
@@ -161,7 +170,13 @@ def store_chunks(
     points = [
         PointStruct(
             id=i,
-            vector=chunk["embedding"],
+            vector={
+                "dense": chunk["embedding"],
+                "sparse": SparseVector(
+                    indices=chunk["sparse_indices"],
+                    values=chunk["sparse_values"],
+                ),
+            },
             payload={
                 "text": chunk["text"],
                 "source": chunk["source"],
@@ -182,6 +197,7 @@ def store_chunks(
 def ingest_guidelines(
     directory: Path | None = None,
     client: QdrantClient | None = None,
+    bm25_path: Path | None = None,
 ) -> int:
     """Run the full ingestion pipeline: load → chunk → embed → store.
 
@@ -189,6 +205,20 @@ def ingest_guidelines(
     """
     docs = load_all_documents(directory)
     chunks = chunk_documents(docs)
+
+    # Fit BM25 on all chunk texts and compute sparse vectors
+    texts = [c["text"] for c in chunks]
+    bm25 = BM25Vectorizer().fit(texts)
+    for chunk in chunks:
+        indices, values = bm25.encode_document(chunk["text"])
+        chunk["sparse_indices"] = indices
+        chunk["sparse_values"] = values
+
+    # Save BM25 stats for query-time use
+    bm25_path = bm25_path or settings.bm25_stats_path
+    bm25.save(bm25_path)
+
+    # Compute dense embeddings
     chunks = embed_chunks(chunks)
 
     client = client or get_qdrant_client()

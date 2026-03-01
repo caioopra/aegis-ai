@@ -1,0 +1,119 @@
+Diretriz Brasileira de Acidente Vascular Cerebral — Resumo Simplificado
+(Baseado nas Diretrizes da Academia Brasileira de Neurologia e Sociedade Brasileira de Doenças Cerebrovasculares)
+
+1. DEFINIÇÃO E CLASSIFICAÇÃO
+
+O acidente vascular cerebral (AVC) é um déficit neurológico de início súbito
+causado por alteração vascular (isquemia ou hemorragia) no sistema nervoso central.
+
+Tipos:
+- AVC isquêmico (AVCi): 80-85% dos casos. Oclusão arterial por trombo ou êmbolo.
+- AVC hemorrágico (AVCh): 15-20% dos casos. Ruptura vascular com hemorragia
+  intraparenquimatosa ou subaracnoide.
+- Ataque isquêmico transitório (AIT): déficit neurológico focal < 24h, sem lesão
+  na neuroimagem. Representa alto risco de AVC subsequente.
+
+2. DIAGNÓSTICO E AVALIAÇÃO INICIAL
+
+Reconhecimento rápido — escala SAMU (FAST):
+- Face: assimetria facial (desvio da rima labial)
+- Arm: fraqueza em um braço (queda ao elevar)
+- Speech: fala arrastada ou incompreensível
+- Time: anotar horário de início e acionar SAMU (192)
+
+Avaliação na emergência:
+- NIHSS (National Institutes of Health Stroke Scale): quantifica gravidade
+- TC de crânio sem contraste: exclui hemorragia (obrigatório antes de trombólise)
+- Angio-TC: identifica oclusão de grande vaso (candidato a trombectomia)
+- Glicemia, coagulograma, ECG, eletrólitos
+- Janela terapêutica: tempo é cérebro — cada minuto conta
+
+3. TRATAMENTO AGUDO DO AVC ISQUÊMICO
+
+Trombólise intravenosa (alteplase):
+- Indicação: AVCi com < 4,5 horas de início dos sintomas
+- Dose: 0,9 mg/kg (máximo 90 mg), 10% em bolus + 90% em infusão de 1h
+- Contraindicações: hemorragia intracraniana, cirurgia maior < 14 dias,
+  PA não controlada (> 185/110 mmHg), plaquetas < 100.000, INR > 1,7
+- Tenecteplase: alternativa em dose única (0,25 mg/kg), pode ser preferida
+  para oclusões de grandes vasos antes da trombectomia
+
+Trombectomia mecânica:
+- Indicação: oclusão de grande vaso (ACI, ACM M1) com NIHSS ≥ 6
+- Janela: até 6 horas (pode estender até 24h com neuroimagem favorável)
+- Pode ser combinada com trombólise IV
+- Requer centro com equipe de neurorradiologia intervencionista
+
+Manejo clínico na fase aguda:
+- PA: não reduzir se < 220/120 (em não candidatos à trombólise)
+- PA: manter < 185/110 antes e < 180/105 após trombólise
+- Glicemia: manter 140-180 mg/dL, tratar hipoglicemia imediatamente
+- Temperatura: tratar febre > 37,5°C agressivamente
+- Profilaxia de TVP: heparina SC após 24h (se sem transformação hemorrágica)
+
+4. TRATAMENTO AGUDO DO AVC HEMORRÁGICO
+
+- Controle pressórico rigoroso: alvo PAS < 140 mmHg nas primeiras 6h
+  (nitroprussiato, labetalol, nicardipina IV)
+- Reverter anticoagulação se em uso: vitamina K + CCP para varfarina,
+  idarucizumabe para dabigatrana, andexanet alfa para rivaroxabana/apixabana
+- Avaliar necessidade de neurocirurgia: hematomas cerebelares > 3 cm,
+  hidrocefalia, deterioração neurológica
+- Profilaxia de vasoespasmo (hemorragia subaracnoide): nimodipino 60 mg 4/4h
+
+5. PREVENÇÃO SECUNDÁRIA
+
+Após AVC isquêmico:
+- Antiagregação: AAS 100-300 mg/dia (1ª linha) ou clopidogrel 75 mg/dia
+- Dupla antiagregação (AAS + clopidogrel): apenas nos primeiros 21 dias após
+  AVC minor ou AIT de alto risco, depois manter monoterapia
+- Anticoagulação: se fibrilação atrial → anticoagulante oral (varfarina ou DOACs)
+  Iniciar 4-14 dias após AVC (dependendo do tamanho do infarto)
+- Estatinas: atorvastatina 40-80 mg/dia (alvo LDL < 70 mg/dL)
+- Anti-hipertensivos: alvo PA < 130/80 mmHg (IECA/BRA + tiazídico preferidos)
+- Controle glicêmico: HbA1c < 7% em diabéticos
+
+Após AVC hemorrágico:
+- Controle rigoroso da PA: alvo < 130/80 mmHg
+- Avaliar retomada de anticoagulação (caso indicada) após 4-8 semanas
+- Investigar causas: angiografia, pesquisa de malformação vascular
+
+6. FATORES DE RISCO MODIFICÁVEIS
+
+- Hipertensão arterial (principal fator de risco): tratamento reduz risco em 40%
+- Fibrilação atrial: anticoagulação reduz risco embólico em 60-70%
+- Diabetes mellitus: controle glicêmico adequado
+- Dislipidemia: estatinas em prevenção primária e secundária
+- Tabagismo: cessação reduz risco em 50% após 1 ano
+- Sedentarismo: ≥ 150 min/semana de atividade física moderada
+- Obesidade: perda de peso (alvo IMC < 25)
+- Consumo excessivo de álcool: moderação (≤ 2 doses/dia homens, ≤ 1 mulheres)
+- Estenose carotídea: endarterectomia se sintomática > 70% ou assintomática > 80%
+
+7. REABILITAÇÃO
+
+- Iniciar reabilitação precoce (24-48h pós-AVC, se estável)
+- Equipe multidisciplinar: fisioterapia, fonoaudiologia, terapia ocupacional,
+  neuropsicologia, serviço social
+- Fisioterapia motora: mobilização precoce, treino de marcha, fortalecimento
+- Fonoaudiologia: avaliação de disfagia (risco de aspiração), reabilitação da fala
+- Rastreamento de depressão pós-AVC: ocorre em 30-50% dos pacientes
+- Prevenção de complicações: úlceras de pressão, contraturas, TVP
+
+8. ESCALAS IMPORTANTES
+
+NIHSS (gravidade):
+- 0: sem déficit
+- 1-4: AVC leve
+- 5-15: AVC moderado
+- 16-20: AVC moderado-grave
+- 21-42: AVC grave
+
+Escala de Rankin modificada (desfecho funcional):
+- 0: sem sintomas
+- 1: sem incapacidade significativa
+- 2: incapacidade leve
+- 3: incapacidade moderada (caminha sem assistência)
+- 4: incapacidade moderada-grave (não caminha sem assistência)
+- 5: incapacidade grave (acamado)
+- 6: óbito

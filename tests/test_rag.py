@@ -20,6 +20,7 @@ from aegis.rag.ingest import (
     store_chunks,
 )
 from aegis.rag.retriever import format_context, retrieve
+from aegis.rag.sparse import BM25Vectorizer, tokenize
 
 GUIDELINES_DIR = Path("data/guidelines")
 
@@ -45,6 +46,21 @@ def _fake_embedding(text: str) -> list[float]:
     return values[:EMBEDDING_DIM]
 
 
+def _fake_sparse(text: str) -> tuple[list[int], list[float]]:
+    """Deterministic fake sparse vector from text hash."""
+    import hashlib
+
+    h = hashlib.sha256(text.encode()).hexdigest()
+    indices = [int(h[i : i + 4], 16) % 30000 for i in range(0, 20, 4)]
+    values = [int(h[i], 16) / 15.0 + 0.1 for i in range(5)]
+    # Ensure indices are unique and sorted
+    unique: dict[int, float] = {}
+    for idx, val in zip(indices, values):
+        unique[idx] = val
+    sorted_items = sorted(unique.items())
+    return [i for i, _ in sorted_items], [v for _, v in sorted_items]
+
+
 @pytest.fixture
 def qdrant_memory() -> QdrantClient:
     """An in-memory Qdrant client."""
@@ -53,21 +69,24 @@ def qdrant_memory() -> QdrantClient:
 
 @pytest.fixture
 def sample_chunks() -> list[dict]:
-    """Pre-chunked sample data with fake embeddings."""
+    """Pre-chunked sample data with fake embeddings and sparse vectors."""
     texts = [
         "Hipertensão arterial sistêmica é uma condição multifatorial.",
         "O tratamento de primeira linha inclui IECA, BRA, BCC e diuréticos.",
         "Metformina é o medicamento de primeira linha para diabetes tipo 2.",
     ]
-    return [
-        {
+    chunks = []
+    for i, t in enumerate(texts):
+        s_indices, s_values = _fake_sparse(t)
+        chunks.append({
             "text": t,
             "source": "test.txt",
             "chunk_index": i,
             "embedding": _fake_embedding(t),
-        }
-        for i, t in enumerate(texts)
-    ]
+            "sparse_indices": s_indices,
+            "sparse_values": s_values,
+        })
+    return chunks
 
 
 # ---------------------------------------------------------------------------
@@ -85,11 +104,14 @@ class TestLoadDocument:
 
     def test_load_all_documents(self):
         docs = load_all_documents(GUIDELINES_DIR)
-        assert len(docs) == 3
+        assert len(docs) == 6
         sources = {d["source"] for d in docs}
         assert "hipertensao_arterial.txt" in sources
         assert "diabetes_tipo2.txt" in sources
         assert "insuficiencia_cardiaca.txt" in sources
+        assert "asma.txt" in sources
+        assert "dpoc.txt" in sources
+        assert "avc.txt" in sources
 
     def test_each_document_has_text(self):
         docs = load_all_documents(GUIDELINES_DIR)
@@ -152,8 +174,8 @@ class TestChunking:
     def test_real_guidelines_chunk_count(self):
         docs = load_all_documents(GUIDELINES_DIR)
         chunks = chunk_documents(docs)
-        # 3 documents of ~2-3KB each, 512-char chunks → expect ~15-30 chunks
-        assert len(chunks) >= 10
+        # 6 documents → expect ~30-60 chunks
+        assert len(chunks) >= 20
         assert all(c["text"] for c in chunks)
 
 
@@ -193,7 +215,7 @@ class TestQdrantStorage:
 
 
 # ---------------------------------------------------------------------------
-# Retrieval (with mocked embeddings)
+# Retrieval (with mocked embeddings) — dense mode
 # ---------------------------------------------------------------------------
 
 
@@ -212,7 +234,8 @@ class TestRetrieval:
                 "hipertensão tratamento",
                 client=populated_qdrant,
                 collection="test_coll",
-                score_threshold=0.0,  # accept all matches
+                score_threshold=0.0,
+                mode="dense",
             )
         assert len(results) > 0
 
@@ -224,6 +247,7 @@ class TestRetrieval:
                 client=populated_qdrant,
                 collection="test_coll",
                 score_threshold=0.0,
+                mode="dense",
             )
         for r in results:
             assert "text" in r
@@ -240,8 +264,93 @@ class TestRetrieval:
                 collection="test_coll",
                 top_k=2,
                 score_threshold=0.0,
+                mode="dense",
             )
         assert len(results) <= 2
+
+
+# ---------------------------------------------------------------------------
+# Retrieval — hybrid mode
+# ---------------------------------------------------------------------------
+
+
+class TestHybridRetrieval:
+    """Verify hybrid retrieval with RRF fusion."""
+
+    @pytest.fixture
+    def populated_qdrant(self, qdrant_memory: QdrantClient, sample_chunks: list) -> QdrantClient:
+        store_chunks(qdrant_memory, sample_chunks, collection="test_coll")
+        return qdrant_memory
+
+    @pytest.fixture
+    def bm25_stats(self, tmp_path: Path, sample_chunks: list) -> Path:
+        """Fit BM25 on sample chunks and save stats."""
+        texts = [c["text"] for c in sample_chunks]
+        bm25 = BM25Vectorizer().fit(texts)
+        path = tmp_path / "bm25_stats.json"
+        bm25.save(path)
+        return path
+
+    def test_hybrid_returns_results(
+        self, populated_qdrant: QdrantClient, bm25_stats: Path
+    ):
+        query_vec = _fake_embedding("hipertensão tratamento")
+        with (
+            patch("aegis.rag.retriever.embed_text", return_value=query_vec),
+            patch("aegis.rag.retriever.settings") as mock_settings,
+        ):
+            mock_settings.qdrant_collection = "test_coll"
+            mock_settings.bm25_stats_path = bm25_stats
+            results = retrieve(
+                "hipertensão tratamento",
+                client=populated_qdrant,
+                collection="test_coll",
+                score_threshold=0.0,
+                mode="hybrid",
+            )
+        assert len(results) > 0
+
+    def test_hybrid_result_has_fields(
+        self, populated_qdrant: QdrantClient, bm25_stats: Path
+    ):
+        query_vec = _fake_embedding("diabetes")
+        with (
+            patch("aegis.rag.retriever.embed_text", return_value=query_vec),
+            patch("aegis.rag.retriever.settings") as mock_settings,
+        ):
+            mock_settings.qdrant_collection = "test_coll"
+            mock_settings.bm25_stats_path = bm25_stats
+            results = retrieve(
+                "diabetes",
+                client=populated_qdrant,
+                collection="test_coll",
+                score_threshold=0.0,
+                mode="hybrid",
+            )
+        for r in results:
+            assert "text" in r
+            assert "source" in r
+            assert "score" in r
+
+    def test_hybrid_top_k_limits(
+        self, populated_qdrant: QdrantClient, bm25_stats: Path
+    ):
+        query_vec = _fake_embedding("tratamento")
+        with (
+            patch("aegis.rag.retriever.embed_text", return_value=query_vec),
+            patch("aegis.rag.retriever.settings") as mock_settings,
+        ):
+            mock_settings.qdrant_collection = "test_coll"
+            mock_settings.bm25_stats_path = bm25_stats
+            results = retrieve(
+                "tratamento",
+                client=populated_qdrant,
+                collection="test_coll",
+                top_k=1,
+                score_threshold=0.0,
+                mode="hybrid",
+            )
+        assert len(results) <= 1
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +386,119 @@ class TestFormatContext:
 
 
 # ---------------------------------------------------------------------------
+# BM25 sparse vectorizer
+# ---------------------------------------------------------------------------
+
+
+class TestTokenize:
+    """Verify Portuguese-aware tokenizer."""
+
+    def test_lowercases(self):
+        tokens = tokenize("Hipertensão Arterial")
+        assert "hipertensão" in tokens
+        assert "arterial" in tokens
+
+    def test_removes_stop_words(self):
+        tokens = tokenize("O tratamento de primeira linha para hipertensão")
+        assert "o" not in tokens
+        assert "de" not in tokens
+        assert "para" not in tokens
+        assert "tratamento" in tokens
+
+    def test_removes_single_chars(self):
+        tokens = tokenize("A B C hipertensão")
+        assert "a" not in tokens
+        assert "hipertensão" in tokens
+
+    def test_splits_on_punctuation(self):
+        tokens = tokenize("IECA, BRA, BCC — diuréticos.")
+        assert "ieca" in tokens
+        assert "bra" in tokens
+        assert "diuréticos" in tokens
+
+
+class TestBM25Vectorizer:
+    """Verify BM25 fitting, encoding, and persistence."""
+
+    @pytest.fixture
+    def corpus(self) -> list[str]:
+        return [
+            "Hipertensão arterial sistêmica é uma condição multifatorial.",
+            "O tratamento de primeira linha inclui IECA, BRA, BCC e diuréticos.",
+            "Metformina é o medicamento de primeira linha para diabetes tipo 2.",
+            "A asma é uma doença inflamatória crônica das vias aéreas.",
+            "DPOC é causada principalmente pelo tabagismo crônico.",
+        ]
+
+    @pytest.fixture
+    def fitted_bm25(self, corpus: list[str]) -> BM25Vectorizer:
+        return BM25Vectorizer().fit(corpus)
+
+    def test_fit_sets_doc_count(self, fitted_bm25: BM25Vectorizer):
+        assert fitted_bm25.doc_count == 5
+
+    def test_fit_sets_avg_doc_len(self, fitted_bm25: BM25Vectorizer):
+        assert fitted_bm25.avg_doc_len > 0
+
+    def test_fit_populates_doc_freq(self, fitted_bm25: BM25Vectorizer):
+        assert len(fitted_bm25.doc_freq) > 0
+
+    def test_encode_document_returns_sparse(self, fitted_bm25: BM25Vectorizer):
+        indices, values = fitted_bm25.encode_document("hipertensão arterial tratamento")
+        assert len(indices) > 0
+        assert len(indices) == len(values)
+        assert all(isinstance(i, int) for i in indices)
+        assert all(isinstance(v, float) for v in values)
+        assert all(v > 0 for v in values)
+
+    def test_encode_document_indices_sorted(self, fitted_bm25: BM25Vectorizer):
+        indices, _ = fitted_bm25.encode_document("hipertensão tratamento IECA")
+        assert indices == sorted(indices)
+
+    def test_encode_query_returns_sparse(self, fitted_bm25: BM25Vectorizer):
+        indices, values = fitted_bm25.encode_query("hipertensão tratamento")
+        assert len(indices) > 0
+        assert len(indices) == len(values)
+        assert all(v > 0 for v in values)
+
+    def test_encode_query_indices_sorted(self, fitted_bm25: BM25Vectorizer):
+        indices, _ = fitted_bm25.encode_query("diabetes metformina primeira linha")
+        assert indices == sorted(indices)
+
+    def test_save_and_load(self, fitted_bm25: BM25Vectorizer, tmp_path: Path):
+        path = tmp_path / "bm25.json"
+        fitted_bm25.save(path)
+
+        loaded = BM25Vectorizer.load(path)
+        assert loaded.doc_count == fitted_bm25.doc_count
+        assert loaded.avg_doc_len == fitted_bm25.avg_doc_len
+        assert loaded.doc_freq == fitted_bm25.doc_freq
+        assert loaded.k1 == fitted_bm25.k1
+        assert loaded.b == fitted_bm25.b
+
+    def test_loaded_produces_same_vectors(self, fitted_bm25: BM25Vectorizer, tmp_path: Path):
+        path = tmp_path / "bm25.json"
+        fitted_bm25.save(path)
+        loaded = BM25Vectorizer.load(path)
+
+        query = "tratamento diabetes"
+        i1, v1 = fitted_bm25.encode_query(query)
+        i2, v2 = loaded.encode_query(query)
+        assert i1 == i2
+        assert v1 == v2
+
+    def test_different_texts_produce_different_vectors(self, fitted_bm25: BM25Vectorizer):
+        i1, v1 = fitted_bm25.encode_document("hipertensão arterial")
+        i2, v2 = fitted_bm25.encode_document("diabetes metformina")
+        assert (i1, v1) != (i2, v2)
+
+    def test_empty_text_returns_empty(self, fitted_bm25: BM25Vectorizer):
+        indices, values = fitted_bm25.encode_document("")
+        assert indices == []
+        assert values == []
+
+
+# ---------------------------------------------------------------------------
 # Integration tests (need Ollama + nomic-embed-text)
 # ---------------------------------------------------------------------------
 
@@ -308,21 +530,36 @@ class TestRAGIntegration:
         assert len(vec) == EMBEDDING_DIM
         assert all(isinstance(v, float) for v in vec)
 
-    def test_full_ingest_and_retrieve(self):
+    def test_full_ingest_and_retrieve(self, tmp_path: Path):
         from aegis.rag.ingest import ingest_guidelines
         from aegis.rag.retriever import retrieve
 
         client = QdrantClient(":memory:")
+        bm25_path = tmp_path / "bm25_stats.json"
         with patch("aegis.rag.ingest.settings.qdrant_collection", "test_integration"):
-            count = ingest_guidelines(GUIDELINES_DIR, client=client)
+            count = ingest_guidelines(GUIDELINES_DIR, client=client, bm25_path=bm25_path)
         assert count > 0
+        assert bm25_path.exists()
 
+        # Test dense retrieval
         results = retrieve(
             "tratamento hipertensão estágio 2",
             client=client,
             collection="test_integration",
+            mode="dense",
         )
         assert len(results) > 0
-        # Should find hypertension-related content
         combined = " ".join(r["text"].lower() for r in results)
         assert "hipertensão" in combined or "pressão" in combined
+
+        # Test hybrid retrieval
+        with patch("aegis.rag.retriever.settings") as mock_settings:
+            mock_settings.bm25_stats_path = bm25_path
+            mock_settings.qdrant_collection = "test_integration"
+            results_hybrid = retrieve(
+                "tratamento hipertensão estágio 2",
+                client=client,
+                collection="test_integration",
+                mode="hybrid",
+            )
+        assert len(results_hybrid) > 0

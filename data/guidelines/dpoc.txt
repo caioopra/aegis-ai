@@ -1,0 +1,96 @@
+Diretriz Brasileira de DPOC — Resumo Simplificado
+(Baseado nas Diretrizes da Sociedade Brasileira de Pneumologia e Tisiologia / GOLD)
+
+1. DEFINIÇÃO
+
+A doença pulmonar obstrutiva crônica (DPOC) é uma doença prevenível e tratável,
+caracterizada por limitação persistente e progressiva do fluxo aéreo, associada
+a resposta inflamatória crônica das vias aéreas e pulmões a partículas ou gases
+nocivos. A causa mais comum é o tabagismo.
+
+2. DIAGNÓSTICO
+
+Critérios diagnósticos:
+- Espirometria pós-broncodilatador com relação VEF1/CVF < 0,70 (obrigatório)
+- Quadro clínico: dispneia progressiva, tosse crônica, expectoração
+- Exposição a fatores de risco: tabagismo (≥ 10 maços-ano), biomassa, poeira ocupacional
+
+Classificação da gravidade da obstrução (GOLD, pelo VEF1 pós-BD):
+- GOLD 1 (leve): VEF1 ≥ 80% do previsto
+- GOLD 2 (moderada): 50% ≤ VEF1 < 80%
+- GOLD 3 (grave): 30% ≤ VEF1 < 50%
+- GOLD 4 (muito grave): VEF1 < 30%
+
+Avaliação combinada (grupos ABE):
+- Grupo A: poucos sintomas (mMRC 0-1, CAT < 10), 0-1 exacerbações/ano (sem internação)
+- Grupo B: mais sintomas (mMRC ≥ 2, CAT ≥ 10), 0-1 exacerbações/ano (sem internação)
+- Grupo E (exacerbador): ≥ 2 exacerbações/ano ou ≥ 1 com internação
+
+3. TRATAMENTO FARMACOLÓGICO
+
+Grupo A:
+- Broncodilatador de curta ou longa duração (SABA, SAMA, LABA ou LAMA)
+
+Grupo B:
+- LABA + LAMA como terapia inicial preferida
+- Alternativa: LABA ou LAMA isolado
+
+Grupo E (exacerbador):
+- LABA + LAMA como terapia inicial preferida
+- Se eosinófilos ≥ 300: considerar LABA + LAMA + CI (terapia tripla)
+- Se eosinófilos < 100: evitar CI (risco de pneumonia sem benefício)
+
+Medicamentos principais:
+- LAMA: tiotrópio 18 mcg/dia, umeclidínio 62,5 mcg/dia, glicopirrônio 50 mcg/dia
+- LABA: formoterol 12 mcg 2x/dia, salmeterol 50 mcg 2x/dia, indacaterol 150 mcg/dia
+- CI (quando indicado): budesonida, fluticasona (sempre associado a LABA + LAMA)
+- SABA: salbutamol 200-400 mcg sob demanda (resgate)
+
+Quando adicionar CI na DPOC:
+- Eosinófilos ≥ 300 células/µL
+- Histórico de asma concomitante (sobreposição asma-DPOC)
+- ≥ 2 exacerbações moderadas/ano apesar de LABA + LAMA
+- Não usar CI se: eosinófilos < 100, pneumonias de repetição, micobacteriose
+
+4. TRATAMENTO NÃO FARMACOLÓGICO
+
+- Cessação do tabagismo (medida mais eficaz para reduzir progressão)
+- Reabilitação pulmonar (exercício + educação, ≥ 6 semanas)
+- Vacinação: influenza anual, pneumocócica (PCV13 + PPSV23), COVID-19
+- Oxigenoterapia domiciliar prolongada (ODP): se PaO2 ≤ 55 mmHg ou SpO2 ≤ 88%
+- Suporte nutricional: desnutrição é fator prognóstico negativo
+- Atividade física regular adaptada à capacidade
+
+5. EXACERBAÇÃO DA DPOC
+
+Definição: piora aguda dos sintomas respiratórios além da variação habitual,
+necessitando mudança no tratamento.
+
+Classificação das exacerbações:
+- Leve: tratada apenas com broncodilatadores de curta duração
+- Moderada: requer antibiótico e/ou corticoide sistêmico
+- Grave: requer internação hospitalar ou visita à emergência
+
+Tratamento da exacerbação:
+- SABA + SAMA (salbutamol + ipratrópio) em nebulização ou spray
+- Corticoide sistêmico: prednisona 40 mg/dia por 5 dias
+- Antibiótico: se aumento da dispneia + aumento do volume + purulência do escarro
+  Opções: amoxicilina-clavulanato, azitromicina, levofloxacino
+- Oxigênio suplementar: alvo SpO2 88-92% (evitar hiperóxia)
+- VNI (ventilação não invasiva): se acidose respiratória (pH < 7,35)
+
+6. COMORBIDADES FREQUENTES
+
+- DPOC + doença cardiovascular: betabloqueadores cardioseletivos são seguros
+- DPOC + osteoporose: rastreamento com densitometria, reposição de vitamina D
+- DPOC + ansiedade/depressão: rastrear com escalas, tratar adequadamente
+- DPOC + câncer de pulmão: rastreamento com TC de baixa dose em tabagistas
+- DPOC + diabetes: atenção ao uso de corticoides sistêmicos
+
+7. MONITORAMENTO
+
+- Espirometria anual para avaliar progressão
+- Avaliar sintomas (mMRC, CAT) e frequência de exacerbações a cada consulta
+- Gasometria arterial se VEF1 < 50% ou sinais de insuficiência respiratória
+- Avaliar técnica inalatória e adesão a cada visita
+- Considerar redução de CI se estável por 3 meses e eosinófilos < 300
