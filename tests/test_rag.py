@@ -78,14 +78,16 @@ def sample_chunks() -> list[dict]:
     chunks = []
     for i, t in enumerate(texts):
         s_indices, s_values = _fake_sparse(t)
-        chunks.append({
-            "text": t,
-            "source": "test.txt",
-            "chunk_index": i,
-            "embedding": _fake_embedding(t),
-            "sparse_indices": s_indices,
-            "sparse_values": s_values,
-        })
+        chunks.append(
+            {
+                "text": t,
+                "source": "test.txt",
+                "chunk_index": i,
+                "embedding": _fake_embedding(t),
+                "sparse_indices": s_indices,
+                "sparse_values": s_values,
+            }
+        )
     return chunks
 
 
@@ -291,9 +293,7 @@ class TestHybridRetrieval:
         bm25.save(path)
         return path
 
-    def test_hybrid_returns_results(
-        self, populated_qdrant: QdrantClient, bm25_stats: Path
-    ):
+    def test_hybrid_returns_results(self, populated_qdrant: QdrantClient, bm25_stats: Path):
         query_vec = _fake_embedding("hipertensão tratamento")
         with (
             patch("aegis.rag.retriever.embed_text", return_value=query_vec),
@@ -310,9 +310,7 @@ class TestHybridRetrieval:
             )
         assert len(results) > 0
 
-    def test_hybrid_result_has_fields(
-        self, populated_qdrant: QdrantClient, bm25_stats: Path
-    ):
+    def test_hybrid_result_has_fields(self, populated_qdrant: QdrantClient, bm25_stats: Path):
         query_vec = _fake_embedding("diabetes")
         with (
             patch("aegis.rag.retriever.embed_text", return_value=query_vec),
@@ -332,9 +330,7 @@ class TestHybridRetrieval:
             assert "source" in r
             assert "score" in r
 
-    def test_hybrid_top_k_limits(
-        self, populated_qdrant: QdrantClient, bm25_stats: Path
-    ):
+    def test_hybrid_top_k_limits(self, populated_qdrant: QdrantClient, bm25_stats: Path):
         query_vec = _fake_embedding("tratamento")
         with (
             patch("aegis.rag.retriever.embed_text", return_value=query_vec),
