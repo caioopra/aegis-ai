@@ -104,13 +104,32 @@ class FHIRStore:
         """Return Observation resources for a patient."""
         return self.get_resources(patient_id, "Observation")
 
+    def get_procedures(self, patient_id: str) -> list[Resource]:
+        """Return Procedure resources for a patient."""
+        return self.get_resources(patient_id, "Procedure")
+
+    def get_diagnostic_reports(self, patient_id: str) -> list[Resource]:
+        """Return DiagnosticReport resources for a patient."""
+        return self.get_resources(patient_id, "DiagnosticReport")
+
+    def get_encounters(self, patient_id: str) -> list[Resource]:
+        """Return Encounter resources for a patient."""
+        return self.get_resources(patient_id, "Encounter")
+
+    def get_immunizations(self, patient_id: str) -> list[Resource]:
+        """Return Immunization resources for a patient."""
+        return self.get_resources(patient_id, "Immunization")
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _resolve_patient_id(self, resource: Resource) -> str | None:
-        """Extract the patient ID from a resource's ``subject`` reference."""
+        """Extract the patient ID from a resource's ``subject`` or ``patient`` reference."""
         ref = resource.get("subject", {}).get("reference", "")
+        if not ref:
+            # Immunization uses "patient" instead of "subject"
+            ref = resource.get("patient", {}).get("reference", "")
         if not ref:
             return None
 

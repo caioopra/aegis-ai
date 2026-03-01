@@ -165,7 +165,7 @@ class TestGetResources:
         assert len(conditions) == 3
 
     def test_unknown_resource_type_returns_empty(self, store: FHIRStore):
-        assert store.get_resources(PATIENT_ID, "Procedure") == []
+        assert store.get_resources(PATIENT_ID, "CarePlan") == []
 
 
 # ------------------------------------------------------------------
@@ -323,3 +323,108 @@ class TestEdgeCases:
 
     def test_format_name_with_given_only(self):
         assert FHIRStore._format_patient_name({"name": [{"given": ["Ana"]}]}) == "Ana"
+
+
+# ------------------------------------------------------------------
+# New resource type lookups (Phase 6)
+# ------------------------------------------------------------------
+
+
+class TestGetProcedures:
+    """Verify procedure lookups return expected data."""
+
+    def test_procedure_count(self, store: FHIRStore):
+        procedures = store.get_procedures(PATIENT_ID)
+        assert len(procedures) == 2
+
+    def test_procedure_has_code_and_text(self, store: FHIRStore):
+        procedures = store.get_procedures(PATIENT_ID)
+        texts = [p["code"]["text"] for p in procedures]
+        assert "Ecocardiograma transtorácico" in texts
+        assert "Eletrocardiograma" in texts
+
+    def test_empty_for_unknown_patient(self, store: FHIRStore):
+        assert store.get_procedures("nonexistent") == []
+
+
+class TestGetDiagnosticReports:
+    """Verify diagnostic report lookups return expected data."""
+
+    def test_report_count(self, store: FHIRStore):
+        reports = store.get_diagnostic_reports(PATIENT_ID)
+        assert len(reports) == 2
+
+    def test_report_has_code_and_conclusion(self, store: FHIRStore):
+        reports = store.get_diagnostic_reports(PATIENT_ID)
+        texts = [r["code"]["text"] for r in reports]
+        assert "Hemograma completo" in texts
+        assert "Hemoglobina glicada (HbA1c)" in texts
+
+    def test_empty_for_unknown_patient(self, store: FHIRStore):
+        assert store.get_diagnostic_reports("nonexistent") == []
+
+
+class TestGetEncounters:
+    """Verify encounter lookups return expected data."""
+
+    def test_encounter_count(self, store: FHIRStore):
+        encounters = store.get_encounters(PATIENT_ID)
+        assert len(encounters) == 2
+
+    def test_encounter_has_type(self, store: FHIRStore):
+        encounters = store.get_encounters(PATIENT_ID)
+        texts = [e["type"][0]["text"] for e in encounters]
+        assert "Consulta de rotina" in texts
+        assert "Internação hospitalar" in texts
+
+    def test_empty_for_unknown_patient(self, store: FHIRStore):
+        assert store.get_encounters("nonexistent") == []
+
+
+class TestGetImmunizations:
+    """Verify immunization lookups return expected data."""
+
+    def test_immunization_count(self, store: FHIRStore):
+        immunizations = store.get_immunizations(PATIENT_ID)
+        assert len(immunizations) == 2
+
+    def test_immunization_has_vaccine(self, store: FHIRStore):
+        immunizations = store.get_immunizations(PATIENT_ID)
+        texts = [i["vaccineCode"]["text"] for i in immunizations]
+        assert "COVID-19 (Coronavac)" in texts
+        assert "Influenza sazonal" in texts
+
+    def test_empty_for_unknown_patient(self, store: FHIRStore):
+        assert store.get_immunizations("nonexistent") == []
+
+
+class TestPatientReferenceResolution:
+    """Verify that 'patient' reference (used by Immunization) is resolved."""
+
+    def test_immunization_patient_ref(self, tmp_path: Path):
+        bundle = {
+            "resourceType": "Bundle",
+            "type": "collection",
+            "entry": [
+                {
+                    "resource": {
+                        "resourceType": "Patient",
+                        "id": "p1",
+                        "name": [{"given": ["Test"]}],
+                    }
+                },
+                {
+                    "resource": {
+                        "resourceType": "Immunization",
+                        "id": "imm-1",
+                        "vaccineCode": {"text": "BCG"},
+                        "patient": {"reference": "Patient/p1"},
+                    }
+                },
+            ],
+        }
+        path = tmp_path / "imm_test.json"
+        path.write_text(json.dumps(bundle))
+        s = FHIRStore()
+        s.load_bundle(path)
+        assert len(s.get_immunizations("p1")) == 1

@@ -9,13 +9,21 @@ import pytest
 
 from aegis.mcp_server import (
     _format_condition,
+    _format_diagnostic_report,
+    _format_encounter,
+    _format_immunization,
     _format_medication,
     _format_observation,
     _format_patient,
+    _format_procedure,
     _normalize_drug_name,
     consultar_condicoes,
+    consultar_encontros,
+    consultar_exames,
+    consultar_imunizacoes,
     consultar_medicamentos,
     consultar_paciente,
+    consultar_procedimentos,
     consultar_sinais_vitais,
     listar_pacientes,
     verificar_interacao_medicamentosa,
@@ -330,3 +338,257 @@ class TestNormalizeDrugName:
 
     def test_lowercases(self):
         assert _normalize_drug_name("Losartana") == "losartana"
+
+
+# ------------------------------------------------------------------
+# Formatting helpers — new resource types (Phase 6)
+# ------------------------------------------------------------------
+
+
+class TestFormatProcedure:
+    """Verify _format_procedure output."""
+
+    def test_includes_text_and_date(self):
+        proc = {
+            "code": {"text": "Ecocardiograma transtorácico"},
+            "status": "completed",
+            "performedDateTime": "2023-11-06T14:00:00-03:00",
+        }
+        result = _format_procedure(proc)
+        assert "Ecocardiograma transtorácico" in result
+        assert "completed" in result
+        assert "2023-11-06" in result
+
+    def test_falls_back_to_display(self):
+        proc = {"code": {"coding": [{"display": "ECG"}]}, "status": "completed"}
+        result = _format_procedure(proc)
+        assert "ECG" in result
+
+    def test_performed_period_fallback(self):
+        proc = {
+            "code": {"text": "Cirurgia"},
+            "performedPeriod": {"start": "2024-01-01", "end": "2024-01-02"},
+        }
+        result = _format_procedure(proc)
+        assert "2024-01-01" in result
+
+    def test_unknown_when_no_code(self):
+        result = _format_procedure({"code": {}})
+        assert "Desconhecido" in result
+
+
+class TestFormatDiagnosticReport:
+    """Verify _format_diagnostic_report output."""
+
+    def test_includes_text_and_conclusion(self):
+        report = {
+            "code": {"text": "Hemograma completo"},
+            "effectiveDateTime": "2025-01-10",
+            "conclusion": "Dentro da normalidade.",
+        }
+        result = _format_diagnostic_report(report)
+        assert "Hemograma completo" in result
+        assert "2025-01-10" in result
+        assert "Dentro da normalidade." in result
+
+    def test_falls_back_to_display(self):
+        report = {"code": {"coding": [{"display": "CBC"}]}}
+        result = _format_diagnostic_report(report)
+        assert "CBC" in result
+
+    def test_no_conclusion(self):
+        report = {"code": {"text": "Exame"}, "effectiveDateTime": "2025-01-01"}
+        result = _format_diagnostic_report(report)
+        assert "Conclusão" not in result
+
+    def test_unknown_when_no_code(self):
+        result = _format_diagnostic_report({"code": {}})
+        assert "Desconhecido" in result
+
+
+class TestFormatEncounter:
+    """Verify _format_encounter output."""
+
+    def test_includes_type_and_dates(self):
+        enc = {
+            "type": [{"text": "Consulta de rotina"}],
+            "class": {"code": "AMB", "display": "ambulatory"},
+            "period": {"start": "2025-01-10T09:00:00", "end": "2025-01-10T10:30:00"},
+            "reasonCode": [{"text": "Acompanhamento"}],
+        }
+        result = _format_encounter(enc)
+        assert "Consulta de rotina" in result
+        assert "ambulatory" in result
+        assert "2025-01-10" in result
+        assert "Acompanhamento" in result
+
+    def test_date_range_different_days(self):
+        enc = {
+            "type": [{"text": "Internação"}],
+            "class": {"code": "IMP"},
+            "period": {"start": "2023-11-05", "end": "2023-11-12"},
+        }
+        result = _format_encounter(enc)
+        assert "2023-11-05" in result
+        assert "2023-11-12" in result
+
+    def test_same_day_no_range(self):
+        enc = {
+            "type": [{"text": "Consulta"}],
+            "class": {"code": "AMB"},
+            "period": {"start": "2025-01-10", "end": "2025-01-10"},
+        }
+        result = _format_encounter(enc)
+        assert "2025-01-10" in result
+        assert " a " not in result
+
+    def test_no_type_defaults(self):
+        enc = {"class": {"code": "AMB"}, "period": {"start": "2025-01-10"}}
+        result = _format_encounter(enc)
+        assert "Encontro" in result
+
+    def test_falls_back_to_coding_display(self):
+        enc = {
+            "type": [{"coding": [{"display": "Check up"}]}],
+            "class": {"code": "AMB"},
+            "period": {"start": "2025-01-10"},
+        }
+        result = _format_encounter(enc)
+        assert "Check up" in result
+
+
+class TestFormatImmunization:
+    """Verify _format_immunization output."""
+
+    def test_includes_vaccine_and_date(self):
+        imm = {
+            "vaccineCode": {"text": "COVID-19 (Coronavac)"},
+            "status": "completed",
+            "occurrenceDateTime": "2021-04-15",
+        }
+        result = _format_immunization(imm)
+        assert "COVID-19 (Coronavac)" in result
+        assert "completed" in result
+        assert "2021-04-15" in result
+
+    def test_falls_back_to_display(self):
+        imm = {
+            "vaccineCode": {"coding": [{"display": "Influenza"}]},
+            "status": "completed",
+        }
+        result = _format_immunization(imm)
+        assert "Influenza" in result
+
+    def test_unknown_when_no_code(self):
+        result = _format_immunization({"vaccineCode": {}})
+        assert "Desconhecido" in result
+
+
+# ------------------------------------------------------------------
+# MCP Tools — consultar_procedimentos
+# ------------------------------------------------------------------
+
+
+class TestConsultarProcedimentos:
+    """Verify the consultar_procedimentos tool."""
+
+    def test_lists_procedures(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_procedimentos(PATIENT_ID)
+        assert "Ecocardiograma transtorácico" in result
+        assert "Eletrocardiograma" in result
+
+    def test_shows_count(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_procedimentos(PATIENT_ID)
+        assert "2)" in result
+
+    def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_procedimentos("nonexistent")
+        assert "Nenhum procedimento" in result
+
+
+# ------------------------------------------------------------------
+# MCP Tools — consultar_exames
+# ------------------------------------------------------------------
+
+
+class TestConsultarExames:
+    """Verify the consultar_exames tool."""
+
+    def test_lists_reports(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_exames(PATIENT_ID)
+        assert "Hemograma completo" in result
+        assert "Hemoglobina glicada" in result
+
+    def test_includes_conclusion(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_exames(PATIENT_ID)
+        assert "HbA1c: 7.8%" in result
+
+    def test_shows_count(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_exames(PATIENT_ID)
+        assert "2)" in result
+
+    def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_exames("nonexistent")
+        assert "Nenhum exame" in result
+
+
+# ------------------------------------------------------------------
+# MCP Tools — consultar_encontros
+# ------------------------------------------------------------------
+
+
+class TestConsultarEncontros:
+    """Verify the consultar_encontros tool."""
+
+    def test_lists_encounters(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_encontros(PATIENT_ID)
+        assert "Consulta de rotina" in result
+        assert "Internação hospitalar" in result
+
+    def test_includes_reason(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_encontros(PATIENT_ID)
+        assert "Acompanhamento de hipertensão e diabetes" in result
+
+    def test_shows_count(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_encontros(PATIENT_ID)
+        assert "2)" in result
+
+    def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_encontros("nonexistent")
+        assert "Nenhum encontro" in result
+
+
+# ------------------------------------------------------------------
+# MCP Tools — consultar_imunizacoes
+# ------------------------------------------------------------------
+
+
+class TestConsultarImunizacoes:
+    """Verify the consultar_imunizacoes tool."""
+
+    def test_lists_immunizations(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_imunizacoes(PATIENT_ID)
+        assert "COVID-19 (Coronavac)" in result
+        assert "Influenza sazonal" in result
+
+    def test_shows_count(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_imunizacoes(PATIENT_ID)
+        assert "2)" in result
+
+    def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_imunizacoes("nonexistent")
+        assert "Nenhuma imunização" in result

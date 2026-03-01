@@ -389,6 +389,206 @@
           "code": "cm"
         }
       }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-001",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "185349003",
+                "display": "Encounter for check up"
+              }
+            ],
+            "text": "Consulta de rotina"
+          }
+        ],
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "period": {
+          "start": "2025-01-10T09:00:00-03:00",
+          "end": "2025-01-10T10:30:00-03:00"
+        },
+        "reasonCode": [
+          {
+            "text": "Acompanhamento de hipertensão e diabetes"
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "encounter-002",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "IMP",
+          "display": "inpatient encounter"
+        },
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "32485007",
+                "display": "Hospital admission"
+              }
+            ],
+            "text": "Internação hospitalar"
+          }
+        ],
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "period": {
+          "start": "2023-11-05T08:00:00-03:00",
+          "end": "2023-11-12T14:00:00-03:00"
+        },
+        "reasonCode": [
+          {
+            "text": "Descompensação de insuficiência cardíaca"
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "procedure-001",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "40701008",
+              "display": "Echocardiography"
+            }
+          ],
+          "text": "Ecocardiograma transtorácico"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "performedDateTime": "2023-11-06T14:00:00-03:00"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "procedure-002",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "29303009",
+              "display": "Electrocardiographic procedure"
+            }
+          ],
+          "text": "Eletrocardiograma"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "performedDateTime": "2025-01-10T10:00:00-03:00"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "report-001",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "58410-2",
+              "display": "Complete blood count"
+            }
+          ],
+          "text": "Hemograma completo"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "conclusion": "Hemograma dentro dos limites da normalidade."
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "report-002",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c"
+            }
+          ],
+          "text": "Hemoglobina glicada (HbA1c)"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "conclusion": "HbA1c: 7.8%. Controle glicêmico acima da meta (< 7%)."
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Immunization",
+        "id": "imm-001",
+        "status": "completed",
+        "vaccineCode": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/cvx",
+              "code": "208",
+              "display": "SARS-COV-2 (COVID-19) vaccine"
+            }
+          ],
+          "text": "COVID-19 (Coronavac)"
+        },
+        "patient": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "occurrenceDateTime": "2021-04-15"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Immunization",
+        "id": "imm-002",
+        "status": "completed",
+        "vaccineCode": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/cvx",
+              "code": "141",
+              "display": "Influenza, seasonal, injectable"
+            }
+          ],
+          "text": "Influenza sazonal"
+        },
+        "patient": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "occurrenceDateTime": "2024-05-10"
+      }
     }
   ]
 }

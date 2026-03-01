@@ -162,6 +162,101 @@ def _format_observation(obs: Resource) -> str:
     return text
 
 
+def _format_procedure(proc: Resource) -> str:
+    """Format a Procedure resource as a single descriptive line."""
+    text = proc.get("code", {}).get("text", "")
+    if not text:
+        codings = proc.get("code", {}).get("coding", [])
+        text = codings[0].get("display", "Desconhecido") if codings else "Desconhecido"
+
+    status = proc.get("status", "")
+    performed = proc.get("performedDateTime", "")
+    # performedPeriod fallback
+    period = proc.get("performedPeriod", {})
+    if not performed and period:
+        performed = period.get("start", "")
+
+    parts = [text]
+    if status:
+        parts.append(f"(status: {status})")
+    if performed:
+        parts.append(f"em {performed[:10]}")
+    return " — ".join(parts)
+
+
+def _format_diagnostic_report(report: Resource) -> str:
+    """Format a DiagnosticReport resource as a descriptive block."""
+    text = report.get("code", {}).get("text", "")
+    if not text:
+        codings = report.get("code", {}).get("coding", [])
+        text = codings[0].get("display", "Desconhecido") if codings else "Desconhecido"
+
+    effective = report.get("effectiveDateTime", "")
+    conclusion = report.get("conclusion", "")
+
+    parts = [text]
+    if effective:
+        parts.append(f"em {effective[:10]}")
+    line = " — ".join(parts)
+    if conclusion:
+        line += f"\n  Conclusão: {conclusion}"
+    return line
+
+
+def _format_encounter(enc: Resource) -> str:
+    """Format an Encounter resource as a descriptive line."""
+    type_list = enc.get("type", [])
+    if type_list:
+        text = type_list[0].get("text", "")
+        if not text:
+            codings = type_list[0].get("coding", [])
+            text = codings[0].get("display", "Desconhecido") if codings else "Desconhecido"
+    else:
+        text = "Encontro"
+
+    enc_class = enc.get("class", {})
+    class_display = enc_class.get("display", enc_class.get("code", ""))
+
+    period = enc.get("period", {})
+    start = period.get("start", "")[:10]
+    end = period.get("end", "")[:10]
+
+    reasons = enc.get("reasonCode", [])
+    reason_text = reasons[0].get("text", "") if reasons else ""
+
+    parts = [text]
+    if class_display:
+        parts.append(f"({class_display})")
+    if start:
+        date_range = start
+        if end and end != start:
+            date_range += f" a {end}"
+        parts.append(date_range)
+    line = " — ".join(parts)
+    if reason_text:
+        line += f"\n  Motivo: {reason_text}"
+    return line
+
+
+def _format_immunization(imm: Resource) -> str:
+    """Format an Immunization resource as a single descriptive line."""
+    vaccine = imm.get("vaccineCode", {})
+    text = vaccine.get("text", "")
+    if not text:
+        codings = vaccine.get("coding", [])
+        text = codings[0].get("display", "Desconhecido") if codings else "Desconhecido"
+
+    occurrence = imm.get("occurrenceDateTime", "")
+    status = imm.get("status", "")
+
+    parts = [text]
+    if status:
+        parts.append(f"(status: {status})")
+    if occurrence:
+        parts.append(f"em {occurrence[:10]}")
+    return " — ".join(parts)
+
+
 def _normalize_drug_name(name: str) -> str:
     """Normalize a drug name for interaction lookup."""
     return name.strip().lower()
@@ -249,6 +344,70 @@ def consultar_sinais_vitais(patient_id: str) -> str:
 
     lines = [f"- {_format_observation(o)}" for o in observations]
     return f"Sinais vitais ({len(observations)}):\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def consultar_procedimentos(patient_id: str) -> str:
+    """Retorna os procedimentos realizados em um paciente.
+
+    Lista exames e procedimentos médicos como ecocardiograma,
+    eletrocardiograma, cateterismo, cirurgias, etc.
+    """
+    _load_store()
+    procedures = _store.get_procedures(patient_id)
+    if not procedures:
+        return f"Nenhum procedimento registrado para o paciente {patient_id}."
+
+    lines = [f"- {_format_procedure(p)}" for p in procedures]
+    return f"Procedimentos ({len(procedures)}):\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def consultar_exames(patient_id: str) -> str:
+    """Retorna os laudos de exames diagnósticos de um paciente.
+
+    Inclui resultados de exames laboratoriais (hemograma, HbA1c, perfil
+    lipídico, função renal) e exames de imagem com suas conclusões.
+    """
+    _load_store()
+    reports = _store.get_diagnostic_reports(patient_id)
+    if not reports:
+        return f"Nenhum exame registrado para o paciente {patient_id}."
+
+    lines = [f"- {_format_diagnostic_report(r)}" for r in reports]
+    return f"Exames diagnósticos ({len(reports)}):\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def consultar_encontros(patient_id: str) -> str:
+    """Retorna o histórico de consultas e internações de um paciente.
+
+    Lista encontros clínicos com tipo (ambulatorial, internação, emergência),
+    datas e motivos. Útil para entender o histórico de atendimentos.
+    """
+    _load_store()
+    encounters = _store.get_encounters(patient_id)
+    if not encounters:
+        return f"Nenhum encontro registrado para o paciente {patient_id}."
+
+    lines = [f"- {_format_encounter(e)}" for e in encounters]
+    return f"Encontros clínicos ({len(encounters)}):\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def consultar_imunizacoes(patient_id: str) -> str:
+    """Retorna as vacinas registradas para um paciente.
+
+    Lista imunizações com nome da vacina, status e data de aplicação.
+    Útil para verificar o calendário vacinal e imunizações pendentes.
+    """
+    _load_store()
+    immunizations = _store.get_immunizations(patient_id)
+    if not immunizations:
+        return f"Nenhuma imunização registrada para o paciente {patient_id}."
+
+    lines = [f"- {_format_immunization(i)}" for i in immunizations]
+    return f"Imunizações ({len(immunizations)}):\n" + "\n".join(lines)
 
 
 @mcp.tool()
