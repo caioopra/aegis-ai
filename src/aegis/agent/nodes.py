@@ -47,8 +47,7 @@ def _match_patient_id(entities: list[dict[str, str]]) -> str:
 
     # Collect names/text from entities
     entity_texts = " ".join(
-        str(e.get("text", "")) + " " + str(e.get("normalized", ""))
-        for e in entities
+        str(e.get("text", "")) + " " + str(e.get("normalized", "")) for e in entities
     ).lower()
 
     # Try to match by name

@@ -29,14 +29,8 @@ NOTE_ICC = (
     "Paciente João, 65a, dispneia aos esforços progressiva, DPN, edema MMII bilateral. "
     "PA 150x95 mmHg. Uso de losartana 50mg, HCTZ 25mg, metformina 850mg."
 )
-NOTE_DM2 = (
-    "Maria, 58a, retorno DM2, glicemia jejum 180, HbA1c 8.5%. "
-    "Metformina 850mg 2x/dia."
-)
-NOTE_ROTINA = (
-    "Retorno de rotina, paciente estável, sem queixas novas. "
-    "PA 130x80. Manter conduta."
-)
+NOTE_DM2 = "Maria, 58a, retorno DM2, glicemia jejum 180, HbA1c 8.5%. Metformina 850mg 2x/dia."
+NOTE_ROTINA = "Retorno de rotina, paciente estável, sem queixas novas. PA 130x80. Manter conduta."
 
 EXPECTED_STATE_KEYS = {
     "patient_note",
@@ -139,9 +133,7 @@ class TestFullPipelineIntegration:
         if result.get("needs_retrieval"):
             guidelines = result.get("guidelines", "")
             assert guidelines, "needs_retrieval=True but guidelines is empty"
-            assert "[Fonte:" in guidelines, (
-                "Guidelines should contain '[Fonte:' source markers"
-            )
+            assert "[Fonte:" in guidelines, "Guidelines should contain '[Fonte:' source markers"
         else:
             guidelines = result.get("guidelines", "")
             if guidelines:
@@ -174,8 +166,7 @@ class TestFullPipelineIntegration:
             assert 1 <= score <= 5, f"Score {score} is outside 1-5 range"
             if score < 3:
                 warnings.warn(
-                    f"Report quality score is low ({score}/5). "
-                    "Review LLM prompts or model quality."
+                    f"Report quality score is low ({score}/5). Review LLM prompts or model quality."
                 )
 
 
@@ -240,10 +231,7 @@ class TestEdgeCasesIntegration:
         assert "report" in result
 
     def test_english_note(self) -> None:
-        note = (
-            "72M patient with uncontrolled hypertension, BP 180/110, "
-            "on losartan 50mg."
-        )
+        note = "72M patient with uncontrolled hypertension, BP 180/110, on losartan 50mg."
 
         result = _invoke(note)
 
