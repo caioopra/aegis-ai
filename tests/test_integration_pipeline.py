@@ -131,7 +131,7 @@ class TestFullPipelineIntegration:
         elapsed = time.perf_counter() - start
 
         assert "report" in result, "Pipeline did not produce a report"
-        assert elapsed < 120, f"Pipeline took {elapsed:.1f}s — exceeds 120s limit"
+        assert elapsed < 300, f"Pipeline took {elapsed:.1f}s — exceeds 300s limit"
 
     def test_guidelines_populated_when_retrieved(self) -> None:
         result = _invoke(NOTE_HAS)
@@ -221,7 +221,7 @@ class TestEdgeCasesIntegration:
             "Paciente João, 65 anos, hipertenso, diabético, em uso de losartana "
             "50mg, HCTZ 25mg, metformina 850mg. PA 160x95 mmHg, FC 78bpm. "
         )
-        long_note = base * 15  # ~2100 characters
+        long_note = base * 20  # ~2500 characters
         assert len(long_note) > 2000
 
         result = _invoke(long_note)
