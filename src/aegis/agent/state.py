@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -18,6 +18,7 @@ class AgentState(TypedDict, total=False):
     # After parse_note
     extracted_entities: list[dict[str, str]]
     patient_id: str
+    patient_id_match_type: Literal["exact", "partial", "fallback", "none"]
 
     # After decide_retrieval
     needs_retrieval: bool
@@ -25,6 +26,7 @@ class AgentState(TypedDict, total=False):
 
     # After retrieve_guidelines
     guidelines: str
+    retrieval_confidence: float
 
     # After fetch_patient_data
     patient_data: str
@@ -34,3 +36,10 @@ class AgentState(TypedDict, total=False):
 
     # After evaluate_report
     evaluation: dict[str, Any]
+
+    # Retry loop
+    retry_count: int
+
+    # Error tracking (accumulated across all nodes)
+    warnings: list[str]
+    errors: list[str]
