@@ -57,8 +57,15 @@ def timed(label: str):
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SAMPLE_PATIENT_PATH = PROJECT_ROOT / "data" / "synthea" / "sample_patient_joao.json"
+SYNTHEA_DIR = PROJECT_ROOT / "data" / "synthea"
+SAMPLE_PATIENT_PATH = SYNTHEA_DIR / "sample_patient_joao.json"
 GUIDELINES_DIR = PROJECT_ROOT / "data" / "guidelines"
+
+# Smaller Synthea patients for multi-patient tests
+SYNTHEA_PATIENT_PATHS = [
+    SYNTHEA_DIR / "Isaias604_Cormier289_b8927eee-7ffa-7c0d-4a91-21d9340281a4.json",
+    SYNTHEA_DIR / "Harry448_Bosco882_c48de83f-92a1-1613-109f-bf643e67a3c4.json",
+]
 
 
 @pytest.fixture
@@ -79,6 +86,18 @@ def fhir_store() -> FHIRStore:
     store = FHIRStore()
     if SAMPLE_PATIENT_PATH.exists():
         store.load_bundle(SAMPLE_PATIENT_PATH)
+    return store
+
+
+@pytest.fixture(scope="session")
+def multi_patient_fhir_store() -> FHIRStore:
+    """Load sample patient + 2 Synthea patients (session-scoped, no LLM needed)."""
+    store = FHIRStore()
+    if SAMPLE_PATIENT_PATH.exists():
+        store.load_bundle(SAMPLE_PATIENT_PATH)
+    for path in SYNTHEA_PATIENT_PATHS:
+        if path.exists():
+            store.load_bundle(path)
     return store
 
 
