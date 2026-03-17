@@ -8,18 +8,18 @@ import pytest
 from aegis.llm import (
     EXPAND_NOTE_PROMPT,
     ENTITY_EXTRACTION_PROMPT,
+    EVALUATE_REPORT_PROMPT,
     REPORT_PROMPT,
     SELF_RAG_DECISION_PROMPT,
-    EVALUATE_REPORT_PROMPT,
     SYSTEM_MEDICAL,
     _extract_json,
-    generate,
-    generate_json,
-    expand_note,
-    extract_entities,
-    generate_report,
     decide_retrieval,
     evaluate_report,
+    expand_note,
+    extract_entities,
+    generate,
+    generate_json,
+    generate_report,
 )
 
 
@@ -38,17 +38,31 @@ class TestPromptTemplates:
     def test_entity_extraction_prompt_has_note_placeholder(self):
         assert "{note}" in ENTITY_EXTRACTION_PROMPT
 
+    def test_entity_extraction_prompt_has_example(self):
+        assert "HAS" in ENTITY_EXTRACTION_PROMPT
+        assert "Hipertensão arterial sistêmica" in ENTITY_EXTRACTION_PROMPT
+
     def test_report_prompt_has_all_placeholders(self):
         assert "{note}" in REPORT_PROMPT
         assert "{patient_data}" in REPORT_PROMPT
         assert "{guidelines}" in REPORT_PROMPT
+        assert "{refinement_context}" in REPORT_PROMPT
+
+    def test_report_prompt_instructs_on_missing_data(self):
+        assert "Não disponível" in REPORT_PROMPT
 
     def test_self_rag_prompt_has_placeholders(self):
         assert "{note}" in SELF_RAG_DECISION_PROMPT
         assert "{entities}" in SELF_RAG_DECISION_PROMPT
 
-    def test_evaluate_report_prompt_has_placeholder(self):
+    def test_evaluate_report_prompt_has_placeholders(self):
         assert "{report}" in EVALUATE_REPORT_PROMPT
+        assert "{note}" in EVALUATE_REPORT_PROMPT
+        assert "{patient_data}" in EVALUATE_REPORT_PROMPT
+
+    def test_evaluate_report_prompt_has_rubric(self):
+        assert "1 =" in EVALUATE_REPORT_PROMPT
+        assert "5 =" in EVALUATE_REPORT_PROMPT
 
     def test_system_medical_is_nonempty(self):
         assert len(SYSTEM_MEDICAL) > 50
@@ -63,10 +77,20 @@ class TestPromptTemplates:
             note=sample_note,
             patient_data="John Doe, 65y",
             guidelines="Treat hypertension per JNC8",
+            refinement_context="",
         )
         assert sample_note in rendered
         assert "John Doe" in rendered
         assert "JNC8" in rendered
+
+    def test_evaluate_report_prompt_formats_correctly(self):
+        rendered = EVALUATE_REPORT_PROMPT.format(
+            report='{"findings": []}',
+            note="Test note",
+            patient_data="Test data",
+        )
+        assert "Test note" in rendered
+        assert "Test data" in rendered
 
 
 # ── _extract_json tests ──────────────────────────────────────────────────
@@ -189,15 +213,48 @@ class TestGenerateJsonMocked:
         assert call_args.kwargs["format"] == "json"
 
     @patch("aegis.llm.ollama.chat")
-    def test_falls_back_on_invalid_json(self, mock_chat):
-        # First call (with format=json) returns invalid JSON → JSONDecodeError
-        # Second call (fallback without format=json) returns wrapped JSON
+    def test_retries_on_json_decode_error(self, mock_chat):
+        # First 2 calls return invalid JSON, third succeeds
         mock_chat.side_effect = [
             {"message": {"content": "not json"}},
-            {"message": {"content": '{"fallback": true}'}},
+            {"message": {"content": "still not json"}},
+            {"message": {"content": '{"ok": true}'}},
         ]
-        result = generate_json("Test")
+        result = generate_json("Test", max_retries=3)
+        assert result == {"ok": True}
+        assert mock_chat.call_count == 3
+
+    @patch("aegis.llm.ollama.chat")
+    def test_falls_back_to_extract_after_all_retries(self, mock_chat):
+        # All retries fail with format=json, final fallback without format succeeds
+        mock_chat.side_effect = [
+            {"message": {"content": "bad"}},  # retry 1
+            {"message": {"content": "bad"}},  # retry 2
+            {"message": {"content": "bad"}},  # retry 3
+            {"message": {"content": '{"fallback": true}'}},  # fallback generate()
+        ]
+        result = generate_json("Test", max_retries=3)
         assert result == {"fallback": True}
+
+    @patch("aegis.llm.ollama.chat")
+    def test_raises_after_all_retries_and_fallback_fail(self, mock_chat):
+        mock_chat.side_effect = [
+            {"message": {"content": "bad"}},
+            {"message": {"content": "bad"}},
+            {"message": {"content": "bad"}},
+            {"message": {"content": "still no json"}},
+        ]
+        with pytest.raises(ValueError, match="All 3 attempts failed"):
+            generate_json("Test", max_retries=3)
+
+    @patch("aegis.llm.ollama.chat")
+    def test_retries_on_connection_error(self, mock_chat):
+        mock_chat.side_effect = [
+            ConnectionError("Ollama down"),
+            {"message": {"content": '{"ok": true}'}},
+        ]
+        result = generate_json("Test", max_retries=2)
+        assert result == {"ok": True}
 
 
 # ── High-level functions mocked tests ────────────────────────────────────
@@ -246,6 +303,13 @@ class TestHighLevelFunctionsMocked:
         assert "Not available" in prompt_arg
 
     @patch("aegis.llm.generate_json")
+    def test_generate_report_with_refinement_context(self, mock_gen, sample_note):
+        mock_gen.return_value = {}
+        generate_report(sample_note, refinement_context="Fix completeness")
+        prompt_arg = mock_gen.call_args[0][0]
+        assert "Fix completeness" in prompt_arg
+
+    @patch("aegis.llm.generate_json")
     def test_decide_retrieval_calls_generate_json(self, mock_gen, sample_note):
         entities = [{"text": "dispneia", "type": "symptom"}]
         mock_gen.return_value = {"needs_retrieval": True, "queries": ["dyspnea treatment"]}
@@ -260,9 +324,19 @@ class TestHighLevelFunctionsMocked:
             "completeness": {"score": 4, "feedback": "good"},
             "overall": {"score": 4, "feedback": "good"},
         }
-        result = evaluate_report(report)
+        result = evaluate_report(report, note="Test note", patient_data="Test data")
         mock_gen.assert_called_once()
+        prompt_arg = mock_gen.call_args[0][0]
+        assert "Test note" in prompt_arg
+        assert "Test data" in prompt_arg
         assert "completeness" in result
+
+    @patch("aegis.llm.generate_json")
+    def test_evaluate_report_defaults_missing_context(self, mock_gen):
+        mock_gen.return_value = {"overall": {"score": 3, "feedback": "ok"}}
+        evaluate_report({"findings": []})
+        prompt_arg = mock_gen.call_args[0][0]
+        assert "Não disponível" in prompt_arg
 
 
 # ── Integration tests (require live Ollama) ──────────────────────────────

@@ -39,10 +39,12 @@ EXPECTED_STATE_KEYS = {
     "patient_note",
     "extracted_entities",
     "patient_id",
+    "patient_id_match_type",
     "needs_retrieval",
     "retrieval_queries",
     "report",
     "evaluation",
+    "warnings",
 }
 
 REPORT_EXPECTED_KEYS = {"patient_summary", "findings", "assessment", "plan"}
@@ -253,10 +255,11 @@ ALL_NODE_NAMES = {
     "fetch_patient_data",
     "generate_report",
     "evaluate_report",
+    "increment_retry",
 }
 
-# Nodes that always execute (retrieve_guidelines is conditional)
-MANDATORY_NODES = ALL_NODE_NAMES - {"retrieve_guidelines"}
+# Nodes that always execute (retrieve_guidelines and increment_retry are conditional)
+MANDATORY_NODES = ALL_NODE_NAMES - {"retrieve_guidelines", "increment_retry"}
 
 
 def _stream_with_timings(note: str) -> tuple[dict, dict[str, float]]:
