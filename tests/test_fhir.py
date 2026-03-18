@@ -398,6 +398,29 @@ class TestGetImmunizations:
         assert store.get_immunizations("nonexistent") == []
 
 
+class TestGetAllergyIntolerances:
+    """Verify allergy/intolerance lookups return expected data."""
+
+    def test_allergy_count(self, store: FHIRStore):
+        allergies = store.get_allergy_intolerances(PATIENT_ID)
+        assert len(allergies) == 2
+
+    def test_allergy_has_substance(self, store: FHIRStore):
+        allergies = store.get_allergy_intolerances(PATIENT_ID)
+        texts = [a["code"]["text"] for a in allergies]
+        assert "Penicilina" in texts
+        assert "Lactose" in texts
+
+    def test_allergy_has_criticality(self, store: FHIRStore):
+        allergies = store.get_allergy_intolerances(PATIENT_ID)
+        criticalities = {a["code"]["text"]: a.get("criticality", "") for a in allergies}
+        assert criticalities["Penicilina"] == "high"
+        assert criticalities["Lactose"] == "low"
+
+    def test_empty_for_unknown_patient(self, store: FHIRStore):
+        assert store.get_allergy_intolerances("nonexistent") == []
+
+
 class TestPatientReferenceResolution:
     """Verify that 'patient' reference (used by Immunization) is resolved."""
 

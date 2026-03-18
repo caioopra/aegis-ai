@@ -120,6 +120,10 @@ class FHIRStore:
         """Return Immunization resources for a patient."""
         return self.get_resources(patient_id, "Immunization")
 
+    def get_allergy_intolerances(self, patient_id: str) -> list[Resource]:
+        """Return AllergyIntolerance resources for a patient."""
+        return self.get_resources(patient_id, "AllergyIntolerance")
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------

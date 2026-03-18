@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from aegis.mcp_server import (
+    _format_allergy,
     _format_condition,
     _format_diagnostic_report,
     _format_encounter,
@@ -17,6 +18,7 @@ from aegis.mcp_server import (
     _format_patient,
     _format_procedure,
     _normalize_drug_name,
+    consultar_alergias,
     consultar_condicoes,
     consultar_encontros,
     consultar_exames,
@@ -592,3 +594,72 @@ class TestConsultarImunizacoes:
         with _patch_store(loaded_store), _patch_load():
             result = consultar_imunizacoes("nonexistent")
         assert "Nenhuma imunização" in result
+
+
+# ------------------------------------------------------------------
+# _format_allergy
+# ------------------------------------------------------------------
+
+
+class TestFormatAllergy:
+    """Verify _format_allergy output."""
+
+    def test_formats_allergy_with_all_fields(self):
+        allergy = {
+            "code": {"text": "Penicilina"},
+            "clinicalStatus": {"coding": [{"code": "active"}]},
+            "category": ["medication"],
+            "criticality": "high",
+        }
+        result = _format_allergy(allergy)
+        assert "Penicilina" in result
+        assert "active" in result
+        assert "medication" in result
+        assert "high" in result
+
+    def test_formats_allergy_minimal(self):
+        allergy = {"code": {"text": "Látex"}}
+        result = _format_allergy(allergy)
+        assert "Látex" in result
+
+    def test_uses_coding_display_as_fallback(self):
+        allergy = {
+            "code": {"coding": [{"display": "Penicillin"}]},
+        }
+        result = _format_allergy(allergy)
+        assert "Penicillin" in result
+
+    def test_unknown_when_no_code(self):
+        allergy = {"code": {}}
+        result = _format_allergy(allergy)
+        assert "Desconhecido" in result
+
+
+# ------------------------------------------------------------------
+# consultar_alergias
+# ------------------------------------------------------------------
+
+
+class TestConsultarAlergias:
+    """Verify the consultar_alergias tool."""
+
+    def test_lists_allergies(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_alergias(PATIENT_ID)
+        assert "Penicilina" in result
+        assert "Lactose" in result
+
+    def test_shows_count(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_alergias(PATIENT_ID)
+        assert "2)" in result
+
+    def test_shows_criticality(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_alergias(PATIENT_ID)
+        assert "high" in result
+
+    def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store), _patch_load():
+            result = consultar_alergias("nonexistent")
+        assert "Nenhuma alergia" in result

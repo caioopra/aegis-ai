@@ -257,6 +257,35 @@ def _format_immunization(imm: Resource) -> str:
     return " — ".join(parts)
 
 
+def _format_allergy(allergy: Resource) -> str:
+    """Format an AllergyIntolerance resource as a single descriptive line."""
+    # Get the substance/allergen
+    code = allergy.get("code", {})
+    text = code.get("text", "")
+    if not text:
+        codings = code.get("coding", [])
+        text = codings[0].get("display", "Desconhecido") if codings else "Desconhecido"
+
+    clinical_status = ""
+    status_codings = allergy.get("clinicalStatus", {}).get("coding", [])
+    if status_codings:
+        clinical_status = status_codings[0].get("code", "")
+
+    category = allergy.get("category", [])
+    category_text = ", ".join(category) if category else ""
+
+    criticality = allergy.get("criticality", "")
+
+    parts = [text]
+    if clinical_status:
+        parts.append(f"(status: {clinical_status})")
+    if category_text:
+        parts.append(f"categoria: {category_text}")
+    if criticality:
+        parts.append(f"criticidade: {criticality}")
+    return " — ".join(parts)
+
+
 def _normalize_drug_name(name: str) -> str:
     """Normalize a drug name for interaction lookup."""
     return name.strip().lower()
@@ -408,6 +437,23 @@ def consultar_imunizacoes(patient_id: str) -> str:
 
     lines = [f"- {_format_immunization(i)}" for i in immunizations]
     return f"Imunizações ({len(immunizations)}):\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def consultar_alergias(patient_id: str) -> str:
+    """Retorna as alergias e intolerâncias registradas para um paciente.
+
+    Lista alergias a medicamentos, alimentos e substâncias com status
+    clínico e nível de criticidade. Informação crítica para segurança
+    na prescrição de medicamentos.
+    """
+    _load_store()
+    allergies = _store.get_allergy_intolerances(patient_id)
+    if not allergies:
+        return f"Nenhuma alergia registrada para o paciente {patient_id}."
+
+    lines = [f"- {_format_allergy(a)}" for a in allergies]
+    return f"Alergias e intolerâncias ({len(allergies)}):\n" + "\n".join(lines)
 
 
 @mcp.tool()
