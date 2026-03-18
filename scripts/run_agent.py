@@ -117,10 +117,17 @@ def _print_node_verbose(node_name: str, output: dict, elapsed: float) -> None:
         extra_count = len(tools) - base_count
         print(f"  Ferramentas: {base_count} base + {extra_count} dinâmicas")
         if extra_count > 0:
-            dynamic = [t for t in tools if t not in (
-                "consultar_paciente", "consultar_condicoes",
-                "consultar_medicamentos", "consultar_sinais_vitais",
-            )]
+            dynamic = [
+                t
+                for t in tools
+                if t
+                not in (
+                    "consultar_paciente",
+                    "consultar_condicoes",
+                    "consultar_medicamentos",
+                    "consultar_sinais_vitais",
+                )
+            ]
             for t in dynamic:
                 print(f"    + {t}")
         print(f"  Dados ({len(data)} chars): {data[:200]}...")

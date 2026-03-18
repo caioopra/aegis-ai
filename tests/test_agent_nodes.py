@@ -160,18 +160,14 @@ class TestMatchPatientId:
         """Name in the note text (not in entities) should still match."""
         entities = [{"text": "HAS", "type": "condition", "normalized": "hipertensão"}]
         with _patch_store(loaded_store), _patch_ensure():
-            patient_id, match_type = _match_patient_id(
-                entities, note="Paciente João, 65a, HAS"
-            )
+            patient_id, match_type = _match_patient_id(entities, note="Paciente João, 65a, HAS")
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
 
     def test_matches_first_name_only_from_note(self, loaded_store: FHIRStore):
         """Just 'João' in the note should match (partial)."""
         with _patch_store(loaded_store), _patch_ensure():
-            patient_id, match_type = _match_patient_id(
-                [], note="Paciente João com queixas"
-            )
+            patient_id, match_type = _match_patient_id([], note="Paciente João com queixas")
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
 
@@ -528,7 +524,11 @@ class TestFetchPatientData:
                 "patient_id": PATIENT_ID,
                 "extracted_entities": [
                     {"text": "losartana 50mg", "type": "medication", "normalized": "Losartana"},
-                    {"text": "espironolactona", "type": "medication", "normalized": "Espironolactona"},
+                    {
+                        "text": "espironolactona",
+                        "type": "medication",
+                        "normalized": "Espironolactona",
+                    },
                 ],
             }
             result = fetch_patient_data(state)

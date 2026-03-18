@@ -43,23 +43,55 @@ _store = FHIRStore()
 
 TOOL_KEYWORDS: dict[str, list[str]] = {
     "consultar_procedimentos": [
-        "procedimento", "cirurgia", "ecocardiograma", "eletrocardiograma",
-        "cateterismo", "endoscopia", "colonoscopia", "biópsia",
+        "procedimento",
+        "cirurgia",
+        "ecocardiograma",
+        "eletrocardiograma",
+        "cateterismo",
+        "endoscopia",
+        "colonoscopia",
+        "biópsia",
     ],
     "consultar_exames": [
-        "exame", "hemograma", "hba1c", "glicemia", "colesterol",
-        "creatinina", "ureia", "tgo", "tgp", "hemoglobina",
-        "laborat", "lab", "raio-x", "tomografia", "ressonância",
+        "exame",
+        "hemograma",
+        "hba1c",
+        "glicemia",
+        "colesterol",
+        "creatinina",
+        "ureia",
+        "tgo",
+        "tgp",
+        "hemoglobina",
+        "laborat",
+        "lab",
+        "raio-x",
+        "tomografia",
+        "ressonância",
     ],
     "consultar_encontros": [
-        "internação", "internado", "emergência", "pronto-socorro",
-        "consulta anterior", "histórico", "encontro",
+        "internação",
+        "internado",
+        "emergência",
+        "pronto-socorro",
+        "consulta anterior",
+        "histórico",
+        "encontro",
     ],
     "consultar_imunizacoes": [
-        "vacina", "imunização", "vacinação", "covid", "influenza", "gripe",
+        "vacina",
+        "imunização",
+        "vacinação",
+        "covid",
+        "influenza",
+        "gripe",
     ],
     "consultar_alergias": [
-        "alergia", "alérgico", "alérgica", "reação adversa", "intolerância",
+        "alergia",
+        "alérgico",
+        "alérgica",
+        "reação adversa",
+        "intolerância",
     ],
 }
 
@@ -81,8 +113,7 @@ def _select_dynamic_tools(entities: list[dict[str, str]]) -> list[str]:
     """
     # Build a single lowercase string from all entity text for keyword matching
     entity_blob = " ".join(
-        str(e.get("text", "")) + " " + str(e.get("normalized", ""))
-        for e in entities
+        str(e.get("text", "")) + " " + str(e.get("normalized", "")) for e in entities
     ).lower()
 
     # Collect entity types
@@ -307,9 +338,7 @@ def fetch_patient_data(state: AgentState) -> dict[str, Any]:
     # Dynamic tools — selected based on entities
     dynamic_tool_names = _select_dynamic_tools(entities)
     dynamic_tools: list[tuple[str, Any]] = [
-        (name, _DYNAMIC_TOOL_FNS[name])
-        for name in dynamic_tool_names
-        if name in _DYNAMIC_TOOL_FNS
+        (name, _DYNAMIC_TOOL_FNS[name]) for name in dynamic_tool_names if name in _DYNAMIC_TOOL_FNS
     ]
 
     all_tools = base_tools + dynamic_tools
@@ -338,11 +367,12 @@ def fetch_patient_data(state: AgentState) -> dict[str, Any]:
             except Exception as e:
                 logger.error(
                     "fetch_patient_data.%s(%s, %s) failed: %s",
-                    interaction_tool, med_a, med_b, e,
+                    interaction_tool,
+                    med_a,
+                    med_b,
+                    e,
                 )
-                sections.append(
-                    f"[{interaction_tool}: erro ao verificar {med_a} + {med_b}]"
-                )
+                sections.append(f"[{interaction_tool}: erro ao verificar {med_a} + {med_b}]")
                 warnings.append(
                     f"fetch_patient_data: {interaction_tool}({med_a}, {med_b}) falhou — {e}"
                 )
