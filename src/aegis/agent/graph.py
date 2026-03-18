@@ -37,7 +37,11 @@ def _route_after_evaluation(state: AgentState) -> str:
     retry_count = state.get("retry_count", 0)
     evaluation = state.get("evaluation", {})
     overall = evaluation.get("overall", {})
-    score = overall.get("score", MIN_ACCEPTABLE_SCORE) if isinstance(overall, dict) else MIN_ACCEPTABLE_SCORE
+    score = (
+        overall.get("score", MIN_ACCEPTABLE_SCORE)
+        if isinstance(overall, dict)
+        else MIN_ACCEPTABLE_SCORE
+    )
 
     if score < MIN_ACCEPTABLE_SCORE and retry_count < MAX_RETRIES:
         return "increment_retry"

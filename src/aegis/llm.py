@@ -218,8 +218,7 @@ def generate_json(
         return _extract_json(raw)
     except Exception:
         raise ValueError(
-            f"All {max_retries} attempts failed for generate_json. "
-            f"Last error: {last_error}"
+            f"All {max_retries} attempts failed for generate_json. Last error: {last_error}"
         ) from last_error
 
 

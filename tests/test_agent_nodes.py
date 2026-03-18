@@ -187,9 +187,7 @@ class TestDecideRetrieval:
         assert result["retrieval_queries"] == []
 
     def test_recovers_from_llm_failure(self):
-        with patch(
-            "aegis.agent.nodes.llm_decide_retrieval", side_effect=ValueError("LLM error")
-        ):
+        with patch("aegis.agent.nodes.llm_decide_retrieval", side_effect=ValueError("LLM error")):
             state = {
                 "patient_note": "Paciente com HAS",
                 "extracted_entities": [],
@@ -368,9 +366,7 @@ class TestGenerateReport:
         assert result["report"] == mock_report
 
     def test_recovers_from_llm_failure(self):
-        with patch(
-            "aegis.agent.nodes.llm_generate_report", side_effect=ValueError("LLM error")
-        ):
+        with patch("aegis.agent.nodes.llm_generate_report", side_effect=ValueError("LLM error")):
             state = {"patient_note": "Nota clínica"}
             result = generate_report(state)
 
@@ -427,9 +423,7 @@ class TestEvaluateReport:
             assert call_kwargs["patient_data"] == "Patient context"
 
     def test_recovers_from_llm_failure(self):
-        with patch(
-            "aegis.agent.nodes.llm_evaluate_report", side_effect=ValueError("LLM error")
-        ):
+        with patch("aegis.agent.nodes.llm_evaluate_report", side_effect=ValueError("LLM error")):
             state = {
                 "report": {"findings": ["test"]},
                 "patient_note": "Note",
