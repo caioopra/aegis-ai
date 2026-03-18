@@ -69,8 +69,10 @@ def main() -> None:
     rag_conf = state.get("retrieval_confidence", 0.0)
 
     print("\n" + "-" * 60)
-    print(f"Tempo total: {total:.1f}s | Retries: {retry_count} | "
-          f"Paciente: {match_type} | RAG conf: {rag_conf:.2f}")
+    print(
+        f"Tempo total: {total:.1f}s | Retries: {retry_count} | "
+        f"Paciente: {match_type} | RAG conf: {rag_conf:.2f}"
+    )
     if warnings:
         print(f"Avisos ({len(warnings)}):")
         for w in warnings:
@@ -87,8 +89,10 @@ def _print_node_verbose(node_name: str, output: dict, elapsed: float) -> None:
 
     if node_name == "parse_note":
         entities = output.get("extracted_entities", [])
-        print(f"  Paciente: {output.get('patient_id', 'N/A')} "
-              f"({output.get('patient_id_match_type', '?')})")
+        print(
+            f"  Paciente: {output.get('patient_id', 'N/A')} "
+            f"({output.get('patient_id_match_type', '?')})"
+        )
         print(f"  Entidades ({len(entities)}):")
         for e in entities:
             print(f"    - {e.get('text', '')} ({e.get('type', '')})")
@@ -122,8 +126,11 @@ def _print_node_verbose(node_name: str, output: dict, elapsed: float) -> None:
 
     warnings = output.get("warnings", [])
     if warnings:
-        new_warnings = [w for w in warnings if node_name.replace("_", " ") in w.lower()
-                        or node_name.split("_")[0] in w.lower()]
+        new_warnings = [
+            w
+            for w in warnings
+            if node_name.replace("_", " ") in w.lower() or node_name.split("_")[0] in w.lower()
+        ]
         for w in new_warnings:
             print(f"  ⚠ {w}")
 
