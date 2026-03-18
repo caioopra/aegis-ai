@@ -8,7 +8,9 @@ from unittest.mock import patch
 import pytest
 
 from aegis.agent.nodes import (
+    _extract_medication_names,
     _match_patient_id,
+    _select_dynamic_tools,
     decide_retrieval,
     evaluate_report,
     fetch_patient_data,
@@ -103,7 +105,7 @@ class TestParseNote:
 
         assert result["extracted_entities"] == []
         assert any("falha" in w for w in result["warnings"])
-        # Should still have a patient_id (fallback)
+        # Should still have a patient_id (matched from note text, not entities)
         assert result["patient_id"] != ""
 
     def test_handles_non_list_entities(self, loaded_store: FHIRStore):
@@ -119,6 +121,25 @@ class TestParseNote:
         assert result["extracted_entities"] == []
         assert any("lista" in w for w in result["warnings"])
 
+    def test_matches_patient_from_note_even_without_entity(self, loaded_store: FHIRStore):
+        """When LLM doesn't extract patient name as entity, note text is still used."""
+        mock_result = {
+            "entities": [
+                {"text": "HAS", "type": "condition", "normalized": "Hipertensão arterial"},
+            ]
+        }
+        with (
+            patch("aegis.agent.nodes.extract_entities", return_value=mock_result),
+            _patch_store(loaded_store),
+            _patch_ensure(),
+        ):
+            state = {"patient_note": "Paciente João, 65a, com HAS descompensada"}
+            result = parse_note(state)
+
+        # Should match João from the note text itself
+        assert result["patient_id"] == PATIENT_ID
+        assert result["patient_id_match_type"] in ("exact", "partial")
+
 
 # ------------------------------------------------------------------
 # _match_patient_id
@@ -126,19 +147,38 @@ class TestParseNote:
 
 
 class TestMatchPatientId:
-    """Verify patient ID matching from entities."""
+    """Verify patient ID matching from entities and note text."""
 
-    def test_matches_by_name(self, loaded_store: FHIRStore):
+    def test_matches_by_name_in_entities(self, loaded_store: FHIRStore):
         entities = [{"text": "João", "type": "patient", "normalized": "João Silva"}]
         with _patch_store(loaded_store), _patch_ensure():
             patient_id, match_type = _match_patient_id(entities)
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
 
+    def test_matches_by_name_in_note(self, loaded_store: FHIRStore):
+        """Name in the note text (not in entities) should still match."""
+        entities = [{"text": "HAS", "type": "condition", "normalized": "hipertensão"}]
+        with _patch_store(loaded_store), _patch_ensure():
+            patient_id, match_type = _match_patient_id(
+                entities, note="Paciente João, 65a, HAS"
+            )
+        assert patient_id == PATIENT_ID
+        assert match_type in ("exact", "partial")
+
+    def test_matches_first_name_only_from_note(self, loaded_store: FHIRStore):
+        """Just 'João' in the note should match (partial)."""
+        with _patch_store(loaded_store), _patch_ensure():
+            patient_id, match_type = _match_patient_id(
+                [], note="Paciente João com queixas"
+            )
+        assert patient_id == PATIENT_ID
+        assert match_type in ("exact", "partial")
+
     def test_fallback_to_first_patient(self, loaded_store: FHIRStore):
         entities = [{"text": "Maria", "type": "patient", "normalized": "Maria Santos"}]
         with _patch_store(loaded_store), _patch_ensure():
-            patient_id, match_type = _match_patient_id(entities)
+            patient_id, match_type = _match_patient_id(entities, note="Paciente Maria")
         # No match for Maria, falls back to first available
         assert patient_id == PATIENT_ID
         assert match_type == "fallback"
@@ -149,6 +189,126 @@ class TestMatchPatientId:
             patient_id, match_type = _match_patient_id(entities)
         assert patient_id == ""
         assert match_type == "none"
+
+    def test_matches_full_name_from_note(self, loaded_store: FHIRStore):
+        """Full name 'João Carlos Silva' in the note should be exact match."""
+        with _patch_store(loaded_store), _patch_ensure():
+            patient_id, match_type = _match_patient_id(
+                [], note="Paciente João Carlos Silva, 65 anos"
+            )
+        assert patient_id == PATIENT_ID
+        assert match_type == "exact"
+
+
+# ------------------------------------------------------------------
+# _select_dynamic_tools
+# ------------------------------------------------------------------
+
+
+class TestSelectDynamicTools:
+    """Verify entity-driven dynamic tool selection."""
+
+    def test_returns_empty_for_no_matching_entities(self):
+        entities = [{"text": "HAS", "type": "condition", "normalized": "hipertensão"}]
+        result = _select_dynamic_tools(entities)
+        assert result == []
+
+    def test_selects_procedimentos_by_keyword(self):
+        entities = [
+            {"text": "ecocardiograma", "type": "procedure", "normalized": "ecocardiograma"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_procedimentos" in result
+
+    def test_selects_exames_by_keyword(self):
+        entities = [
+            {"text": "HbA1c", "type": "lab", "normalized": "hemoglobina glicada"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_exames" in result
+
+    def test_selects_encontros_by_keyword(self):
+        entities = [
+            {"text": "internação", "type": "event", "normalized": "internação hospitalar"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_encontros" in result
+
+    def test_selects_imunizacoes_by_keyword(self):
+        entities = [
+            {"text": "vacina", "type": "procedure", "normalized": "vacinação"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_imunizacoes" in result
+
+    def test_selects_alergias_by_keyword(self):
+        entities = [
+            {"text": "alergia a penicilina", "type": "condition", "normalized": "alergia"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_alergias" in result
+
+    def test_selects_multiple_tools(self):
+        entities = [
+            {"text": "ecocardiograma", "type": "procedure", "normalized": "ecocardiograma"},
+            {"text": "hemograma", "type": "lab", "normalized": "hemograma completo"},
+            {"text": "alergia", "type": "condition", "normalized": "alergia medicamentosa"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_procedimentos" in result
+        assert "consultar_exames" in result
+        assert "consultar_alergias" in result
+
+    def test_selects_by_entity_type(self):
+        entities = [{"text": "ECG", "type": "procedure", "normalized": "eletrocardiograma"}]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_procedimentos" in result
+
+    def test_returns_sorted(self):
+        entities = [
+            {"text": "vacina covid", "type": "procedure", "normalized": "vacinação"},
+            {"text": "alergia", "type": "condition", "normalized": "alergia"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert result == sorted(result)
+
+
+# ------------------------------------------------------------------
+# _extract_medication_names
+# ------------------------------------------------------------------
+
+
+class TestExtractMedicationNames:
+    """Verify medication name extraction from entities."""
+
+    def test_extracts_medications(self):
+        entities = [
+            {"text": "losartana 50mg", "type": "medication", "normalized": "Losartana 50 mg"},
+            {"text": "HAS", "type": "condition", "normalized": "hipertensão"},
+            {"text": "HCTZ 25mg", "type": "medication", "normalized": "Hidroclorotiazida 25 mg"},
+        ]
+        result = _extract_medication_names(entities)
+        assert len(result) == 2
+        assert "Losartana 50 mg" in result
+        assert "Hidroclorotiazida 25 mg" in result
+
+    def test_returns_empty_for_no_meds(self):
+        entities = [{"text": "HAS", "type": "condition", "normalized": "hipertensão"}]
+        assert _extract_medication_names(entities) == []
+
+    def test_prefers_normalized_name(self):
+        entities = [
+            {"text": "losartana", "type": "medication", "normalized": "Losartana potássica"},
+        ]
+        result = _extract_medication_names(entities)
+        assert result == ["Losartana potássica"]
+
+    def test_falls_back_to_text(self):
+        entities = [
+            {"text": "losartana 50mg", "type": "medication", "normalized": ""},
+        ]
+        result = _extract_medication_names(entities)
+        assert result == ["losartana 50mg"]
 
 
 # ------------------------------------------------------------------
@@ -267,9 +427,9 @@ class TestRetrieveGuidelines:
 
 
 class TestFetchPatientData:
-    """Verify fetch_patient_data calls MCP tools."""
+    """Verify fetch_patient_data calls base + dynamic MCP tools."""
 
-    def test_fetches_all_sections(self, loaded_store: FHIRStore):
+    def test_fetches_all_base_sections(self, loaded_store: FHIRStore):
         with (
             patch("aegis.mcp_server._store", loaded_store),
             patch("aegis.mcp_server._load_store"),
@@ -282,11 +442,15 @@ class TestFetchPatientData:
         assert "Hipertensão" in data
         assert "Losartana" in data
         assert "Pressão arterial" in data
+        # Should track tools called
+        assert "consultar_paciente" in result["tools_called"]
+        assert "consultar_condicoes" in result["tools_called"]
 
     def test_no_patient_id(self):
         state = {"patient_id": ""}
         result = fetch_patient_data(state)
         assert "não identificado" in result["patient_data"]
+        assert result["tools_called"] == []
 
     def test_recovers_from_partial_tool_failure(self, loaded_store: FHIRStore):
         with (
@@ -306,6 +470,89 @@ class TestFetchPatientData:
         # Failed section should have fallback message
         assert "indisponíveis" in data
         assert any("falhou" in w for w in result["warnings"])
+
+    def test_calls_dynamic_tools_for_procedure_entities(self, loaded_store: FHIRStore):
+        with (
+            patch("aegis.mcp_server._store", loaded_store),
+            patch("aegis.mcp_server._load_store"),
+        ):
+            state = {
+                "patient_id": PATIENT_ID,
+                "extracted_entities": [
+                    {"text": "ecocardiograma", "type": "procedure", "normalized": "ecocardiograma"},
+                ],
+            }
+            result = fetch_patient_data(state)
+
+        assert "consultar_procedimentos" in result["tools_called"]
+        assert "Ecocardiograma" in result["patient_data"]
+
+    def test_calls_dynamic_tools_for_exam_entities(self, loaded_store: FHIRStore):
+        with (
+            patch("aegis.mcp_server._store", loaded_store),
+            patch("aegis.mcp_server._load_store"),
+        ):
+            state = {
+                "patient_id": PATIENT_ID,
+                "extracted_entities": [
+                    {"text": "HbA1c", "type": "lab", "normalized": "hemoglobina glicada"},
+                ],
+            }
+            result = fetch_patient_data(state)
+
+        assert "consultar_exames" in result["tools_called"]
+        assert "HbA1c" in result["patient_data"]
+
+    def test_calls_allergy_tool_when_triggered(self, loaded_store: FHIRStore):
+        with (
+            patch("aegis.mcp_server._store", loaded_store),
+            patch("aegis.mcp_server._load_store"),
+        ):
+            state = {
+                "patient_id": PATIENT_ID,
+                "extracted_entities": [
+                    {"text": "alergia a penicilina", "type": "condition", "normalized": "alergia"},
+                ],
+            }
+            result = fetch_patient_data(state)
+
+        assert "consultar_alergias" in result["tools_called"]
+        assert "Penicilina" in result["patient_data"]
+
+    def test_checks_medication_interactions(self, loaded_store: FHIRStore):
+        with (
+            patch("aegis.mcp_server._store", loaded_store),
+            patch("aegis.mcp_server._load_store"),
+        ):
+            state = {
+                "patient_id": PATIENT_ID,
+                "extracted_entities": [
+                    {"text": "losartana 50mg", "type": "medication", "normalized": "Losartana"},
+                    {"text": "espironolactona", "type": "medication", "normalized": "Espironolactona"},
+                ],
+            }
+            result = fetch_patient_data(state)
+
+        # Should have called interaction check
+        interaction_calls = [t for t in result["tools_called"] if "interacao" in t]
+        assert len(interaction_calls) == 1
+        assert "hipercalemia" in result["patient_data"].lower()
+
+    def test_no_dynamic_tools_for_simple_note(self, loaded_store: FHIRStore):
+        with (
+            patch("aegis.mcp_server._store", loaded_store),
+            patch("aegis.mcp_server._load_store"),
+        ):
+            state = {
+                "patient_id": PATIENT_ID,
+                "extracted_entities": [
+                    {"text": "HAS", "type": "condition", "normalized": "hipertensão"},
+                ],
+            }
+            result = fetch_patient_data(state)
+
+        # Only base tools should have been called
+        assert len(result["tools_called"]) == 4
 
 
 # ------------------------------------------------------------------

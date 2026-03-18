@@ -7,6 +7,7 @@ a dict with the keys it wants to update.
 from __future__ import annotations
 
 import logging
+from itertools import combinations
 from typing import Any
 
 from aegis.agent.state import AgentState
@@ -18,10 +19,16 @@ from aegis.llm import (
     generate_report as llm_generate_report,
 )
 from aegis.mcp_server import (
+    consultar_alergias,
     consultar_condicoes,
+    consultar_encontros,
+    consultar_exames,
+    consultar_imunizacoes,
     consultar_medicamentos,
     consultar_paciente,
+    consultar_procedimentos,
     consultar_sinais_vitais,
+    verificar_interacao_medicamentosa,
 )
 from aegis.rag.retriever import format_context, retrieve
 
@@ -29,6 +36,90 @@ logger = logging.getLogger(__name__)
 
 # Module-level store for patient ID matching
 _store = FHIRStore()
+
+# ------------------------------------------------------------------
+# Dynamic tool selection mappings
+# ------------------------------------------------------------------
+
+TOOL_KEYWORDS: dict[str, list[str]] = {
+    "consultar_procedimentos": [
+        "procedimento", "cirurgia", "ecocardiograma", "eletrocardiograma",
+        "cateterismo", "endoscopia", "colonoscopia", "biópsia",
+    ],
+    "consultar_exames": [
+        "exame", "hemograma", "hba1c", "glicemia", "colesterol",
+        "creatinina", "ureia", "tgo", "tgp", "hemoglobina",
+        "laborat", "lab", "raio-x", "tomografia", "ressonância",
+    ],
+    "consultar_encontros": [
+        "internação", "internado", "emergência", "pronto-socorro",
+        "consulta anterior", "histórico", "encontro",
+    ],
+    "consultar_imunizacoes": [
+        "vacina", "imunização", "vacinação", "covid", "influenza", "gripe",
+    ],
+    "consultar_alergias": [
+        "alergia", "alérgico", "alérgica", "reação adversa", "intolerância",
+    ],
+}
+
+# Map from tool name to the callable MCP function
+_DYNAMIC_TOOL_FNS: dict[str, Any] = {
+    "consultar_procedimentos": consultar_procedimentos,
+    "consultar_exames": consultar_exames,
+    "consultar_encontros": consultar_encontros,
+    "consultar_imunizacoes": consultar_imunizacoes,
+    "consultar_alergias": consultar_alergias,
+}
+
+
+def _select_dynamic_tools(entities: list[dict[str, str]]) -> list[str]:
+    """Examine extracted entities and return additional tool names to call.
+
+    Checks both entity ``type`` fields and keyword matches against entity
+    ``text``/``normalized`` values.
+    """
+    # Build a single lowercase string from all entity text for keyword matching
+    entity_blob = " ".join(
+        str(e.get("text", "")) + " " + str(e.get("normalized", ""))
+        for e in entities
+    ).lower()
+
+    # Collect entity types
+    entity_types = {str(e.get("type", "")).lower() for e in entities}
+
+    selected: set[str] = set()
+
+    # Type-based triggers
+    type_tool_map: dict[str, str] = {
+        "procedure": "consultar_procedimentos",
+        "exam": "consultar_exames",
+        "lab": "consultar_exames",
+    }
+    for etype, tool_name in type_tool_map.items():
+        if etype in entity_types:
+            selected.add(tool_name)
+
+    # Keyword-based triggers
+    for tool_name, keywords in TOOL_KEYWORDS.items():
+        for kw in keywords:
+            if kw in entity_blob:
+                selected.add(tool_name)
+                break
+
+    return sorted(selected)
+
+
+def _extract_medication_names(entities: list[dict[str, str]]) -> list[str]:
+    """Return medication names from extracted entities."""
+    names: list[str] = []
+    for e in entities:
+        etype = str(e.get("type", "")).lower()
+        if etype in ("medication", "medicamento", "drug"):
+            name = str(e.get("normalized", "") or e.get("text", "")).strip()
+            if name:
+                names.append(name)
+    return names
 
 
 def _ensure_store() -> None:
@@ -39,8 +130,9 @@ def _ensure_store() -> None:
 
 def _match_patient_id(
     entities: list[dict[str, str]],
+    note: str = "",
 ) -> tuple[str, str]:
-    """Try to match a patient ID from extracted entities.
+    """Try to match a patient ID from extracted entities and the raw note.
 
     Returns ``(patient_id, match_type)`` where match_type is one of:
     ``"exact"``, ``"partial"``, ``"fallback"``, or ``"none"``.
@@ -55,10 +147,15 @@ def _match_patient_id(
         str(e.get("text", "")) + " " + str(e.get("normalized", "")) for e in entities
     ).lower()
 
+    # The note itself is the most reliable source for patient names,
+    # since the entity extraction prompt focuses on medical entities
+    # and may not extract patient names.
+    search_text = f"{note.lower()} {entity_texts}"
+
     # Try to match by name
     for p in patients:
         name_parts = p["name"].lower().split()
-        matched_parts = [part for part in name_parts if len(part) > 2 and part in entity_texts]
+        matched_parts = [part for part in name_parts if len(part) > 2 and part in search_text]
         if matched_parts:
             # Check if most name parts matched (exact) or just some (partial)
             match_ratio = len(matched_parts) / len([n for n in name_parts if len(n) > 2])
@@ -77,7 +174,7 @@ def _match_patient_id(
 def parse_note(state: AgentState) -> dict[str, Any]:
     """Extract medical entities and identify the patient from the note."""
     note = state["patient_note"]
-    warnings: list[str] = list(state.get("warnings", []))
+    warnings: list[str] = []
 
     try:
         result = extract_entities(note)
@@ -90,7 +187,7 @@ def parse_note(state: AgentState) -> dict[str, Any]:
         entities = []
         warnings.append(f"parse_note: falha na extração de entidades — {e}")
 
-    patient_id, match_type = _match_patient_id(entities)
+    patient_id, match_type = _match_patient_id(entities, note=note)
 
     if match_type == "fallback":
         warnings.append(
@@ -109,7 +206,7 @@ def decide_retrieval(state: AgentState) -> dict[str, Any]:
     """Self-RAG: let the LLM decide if guideline retrieval is needed."""
     note = state["patient_note"]
     entities = state.get("extracted_entities", [])
-    warnings: list[str] = list(state.get("warnings", []))
+    warnings: list[str] = []
 
     try:
         result = llm_decide_retrieval(note, entities)
@@ -136,7 +233,7 @@ def decide_retrieval(state: AgentState) -> dict[str, Any]:
 def retrieve_guidelines(state: AgentState) -> dict[str, Any]:
     """Retrieve relevant clinical guideline chunks via RAG."""
     queries = state.get("retrieval_queries", [])
-    warnings: list[str] = list(state.get("warnings", []))
+    warnings: list[str] = []
 
     if not queries:
         return {
@@ -187,34 +284,79 @@ def retrieve_guidelines(state: AgentState) -> dict[str, Any]:
 
 
 def fetch_patient_data(state: AgentState) -> dict[str, Any]:
-    """Fetch patient clinical data using the MCP tool functions."""
+    """Fetch patient clinical data using base + dynamically selected MCP tools."""
     patient_id = state.get("patient_id", "")
-    warnings: list[str] = list(state.get("warnings", []))
+    entities = state.get("extracted_entities", [])
+    warnings: list[str] = []
 
     if not patient_id:
         return {
             "patient_data": "Paciente não identificado.",
+            "tools_called": [],
             "warnings": warnings,
         }
 
-    sections: list[str] = []
-    tools = [
+    # Base tools — always called
+    base_tools: list[tuple[str, Any]] = [
         ("consultar_paciente", consultar_paciente),
         ("consultar_condicoes", consultar_condicoes),
         ("consultar_medicamentos", consultar_medicamentos),
         ("consultar_sinais_vitais", consultar_sinais_vitais),
     ]
 
-    for tool_name, tool_fn in tools:
+    # Dynamic tools — selected based on entities
+    dynamic_tool_names = _select_dynamic_tools(entities)
+    dynamic_tools: list[tuple[str, Any]] = [
+        (name, _DYNAMIC_TOOL_FNS[name])
+        for name in dynamic_tool_names
+        if name in _DYNAMIC_TOOL_FNS
+    ]
+
+    all_tools = base_tools + dynamic_tools
+    tools_called: list[str] = []
+    sections: list[str] = []
+
+    for tool_name, tool_fn in all_tools:
         try:
             sections.append(tool_fn(patient_id))
+            tools_called.append(tool_name)
         except Exception as e:
             logger.error("fetch_patient_data.%s failed: %s", tool_name, e)
             sections.append(f"[{tool_name}: dados indisponíveis]")
             warnings.append(f"fetch_patient_data: {tool_name} falhou — {e}")
+            tools_called.append(tool_name)
+
+    # Medication interaction checks — if 2+ medications found in entities
+    med_names = _extract_medication_names(entities)
+    if len(med_names) >= 2:
+        for med_a, med_b in combinations(med_names, 2):
+            interaction_tool = "verificar_interacao_medicamentosa"
+            try:
+                result = verificar_interacao_medicamentosa(med_a, med_b)
+                sections.append(result)
+                tools_called.append(f"{interaction_tool}({med_a}, {med_b})")
+            except Exception as e:
+                logger.error(
+                    "fetch_patient_data.%s(%s, %s) failed: %s",
+                    interaction_tool, med_a, med_b, e,
+                )
+                sections.append(
+                    f"[{interaction_tool}: erro ao verificar {med_a} + {med_b}]"
+                )
+                warnings.append(
+                    f"fetch_patient_data: {interaction_tool}({med_a}, {med_b}) falhou — {e}"
+                )
+                tools_called.append(f"{interaction_tool}({med_a}, {med_b})")
+
+    if dynamic_tool_names:
+        logger.info(
+            "fetch_patient_data: ferramentas dinâmicas selecionadas: %s",
+            dynamic_tool_names,
+        )
 
     return {
         "patient_data": "\n\n".join(sections),
+        "tools_called": tools_called,
         "warnings": warnings,
     }
 
@@ -224,7 +366,7 @@ def generate_report(state: AgentState) -> dict[str, Any]:
     note = state["patient_note"]
     patient_data = state.get("patient_data", "Não disponível")
     guidelines = state.get("guidelines", "Não disponível")
-    warnings: list[str] = list(state.get("warnings", []))
+    warnings: list[str] = []
     retry_count = state.get("retry_count", 0)
 
     # Build refinement context if this is a retry
@@ -266,7 +408,7 @@ def generate_report(state: AgentState) -> dict[str, Any]:
 def evaluate_report(state: AgentState) -> dict[str, Any]:
     """Self-evaluate the generated report quality."""
     report = state.get("report", {})
-    warnings: list[str] = list(state.get("warnings", []))
+    warnings: list[str] = []
 
     if not report or "error" in report:
         return {
