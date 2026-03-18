@@ -24,6 +24,7 @@ through MCP, and generates structured medical reports.
 - Run tests: `uv run pytest`
 - Run single test: `uv run pytest tests/test_mcp_server.py -v`
 - Lint: `uv run ruff check src/ tests/`
+- Format: `uv run ruff format src/ tests/ scripts/`
 - Run MCP server: `uv run python -m aegis.mcp_server`
 - Run agent: `uv run python scripts/run_agent.py --note "..."`
 - Ingest guidelines: `uv run python scripts/ingest_guidelines.py`
@@ -34,3 +35,4 @@ through MCP, and generates structured medical reports.
 - Async functions for I/O-bound operations (MCP, Ollama calls)
 - Keep functions small and focused
 - Docstrings on public functions only
+- **Before finishing a work session**, always run `uv run ruff format src/ tests/ scripts/` to format all code. CI enforces formatting and will fail otherwise.
