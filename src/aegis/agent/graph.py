@@ -1,10 +1,15 @@
 """LangGraph state graph for the clinical agent.
 
-Flow: parse → decide → (retrieve | skip) → fetch → generate → evaluate
-                                                          ↑         │
-                                                          └─────────┘
-                                                        (retry if score < 3,
-                                                         max 2 retries)
+Flow: parse → decide → fan-out [retrieve + fetch | fetch only] → generate → evaluate
+                                                                       ↑         │
+                                                                       └─────────┘
+                                                                     (retry if score < 3,
+                                                                      max 2 retries)
+
+When ``needs_retrieval=True``, ``retrieve_guidelines`` and ``fetch_patient_data``
+run **in parallel** (fan-out) since they are independent — RAG uses queries while
+FHIR uses patient_id.  Both must complete before ``generate_report`` starts
+(fan-in).  When ``needs_retrieval=False``, only ``fetch_patient_data`` runs.
 """
 
 from __future__ import annotations
@@ -25,11 +30,11 @@ MAX_RETRIES = 2
 MIN_ACCEPTABLE_SCORE = 3
 
 
-def _route_retrieval(state: AgentState) -> str:
-    """Conditional edge: retrieve guidelines or skip to patient data."""
+def _route_retrieval(state: AgentState) -> list[str]:
+    """Fan-out: retrieve guidelines + fetch patient data in parallel, or fetch only."""
     if state.get("needs_retrieval", False):
-        return "retrieve_guidelines"
-    return "fetch_patient_data"
+        return ["retrieve_guidelines", "fetch_patient_data"]
+    return ["fetch_patient_data"]
 
 
 def _route_after_evaluation(state: AgentState) -> str:
@@ -51,13 +56,14 @@ def _route_after_evaluation(state: AgentState) -> str:
 def _increment_retry(state: AgentState) -> dict:
     """Bump the retry counter before looping back to generate_report."""
     current = state.get("retry_count", 0)
-    warnings = list(state.get("warnings", []))
     score = state.get("evaluation", {}).get("overall", {}).get("score", "?")
-    warnings.append(
-        f"evaluate_report: score {score}/5 abaixo do mínimo ({MIN_ACCEPTABLE_SCORE}), "
-        f"tentativa {current + 1}/{MAX_RETRIES}"
-    )
-    return {"retry_count": current + 1, "warnings": warnings}
+    return {
+        "retry_count": current + 1,
+        "warnings": [
+            f"evaluate_report: score {score}/5 abaixo do mínimo ({MIN_ACCEPTABLE_SCORE}), "
+            f"tentativa {current + 1}/{MAX_RETRIES}"
+        ],
+    }
 
 
 def build_graph() -> StateGraph:
@@ -78,16 +84,19 @@ def build_graph() -> StateGraph:
 
     # Wire edges
     graph.add_edge("parse_note", "decide_retrieval")
+
+    # Fan-out: decide_retrieval → [retrieve_guidelines + fetch_patient_data] (parallel)
+    #          or decide_retrieval → [fetch_patient_data] (skip RAG)
     graph.add_conditional_edges(
         "decide_retrieval",
         _route_retrieval,
-        {
-            "retrieve_guidelines": "retrieve_guidelines",
-            "fetch_patient_data": "fetch_patient_data",
-        },
+        ["retrieve_guidelines", "fetch_patient_data"],
     )
-    graph.add_edge("retrieve_guidelines", "fetch_patient_data")
+
+    # Fan-in: both parallel branches converge into generate_report
+    graph.add_edge("retrieve_guidelines", "generate_report")
     graph.add_edge("fetch_patient_data", "generate_report")
+
     graph.add_edge("generate_report", "evaluate_report")
 
     # Retry loop: evaluate → (retry | END)

@@ -33,19 +33,20 @@ def loaded_store() -> FHIRStore:
 
 
 class TestRouteRetrieval:
-    """Verify the conditional edge function."""
+    """Verify the fan-out conditional edge function."""
 
-    def test_routes_to_retrieve_when_needed(self):
+    def test_fan_out_when_retrieval_needed(self):
         state = {"needs_retrieval": True}
-        assert _route_retrieval(state) == "retrieve_guidelines"
+        result = _route_retrieval(state)
+        assert set(result) == {"retrieve_guidelines", "fetch_patient_data"}
 
-    def test_routes_to_fetch_when_not_needed(self):
+    def test_fetch_only_when_not_needed(self):
         state = {"needs_retrieval": False}
-        assert _route_retrieval(state) == "fetch_patient_data"
+        assert _route_retrieval(state) == ["fetch_patient_data"]
 
-    def test_routes_to_fetch_when_key_missing(self):
+    def test_fetch_only_when_key_missing(self):
         state = {}
-        assert _route_retrieval(state) == "fetch_patient_data"
+        assert _route_retrieval(state) == ["fetch_patient_data"]
 
 
 class TestRouteAfterEvaluation:
@@ -119,6 +120,16 @@ class TestGraphStructure:
         }
         assert expected == node_names
 
+    def test_retrieve_and_fetch_both_lead_to_generate(self):
+        """Both parallel branches should converge into generate_report."""
+        graph = build_graph()
+        graph_data = graph.get_graph()
+        # Check that both retrieve_guidelines and fetch_patient_data
+        # have edges leading to generate_report
+        edges = [(e.source, e.target) for e in graph_data.edges]
+        assert ("retrieve_guidelines", "generate_report") in edges
+        assert ("fetch_patient_data", "generate_report") in edges
+
 
 # ------------------------------------------------------------------
 # End-to-end with mocks (no LLM, no Qdrant)
@@ -167,6 +178,9 @@ class TestGraphExecution:
         assert "report" in result
         assert "evaluation" in result
         assert result.get("retry_count", 0) == 0
+        # Parallel execution: both branches ran
+        assert "tools_called" in result
+        assert len(result["tools_called"]) >= 4  # at least 4 base tools
 
     def test_full_run_without_retrieval(self, loaded_store: FHIRStore):
         with (
@@ -270,6 +284,53 @@ class TestGraphExecution:
         assert call_count["generate"] == 1 + MAX_RETRIES
         assert result["retry_count"] == MAX_RETRIES
         assert result["evaluation"]["overall"]["score"] == 1
+
+    def test_parallel_execution_both_branches_complete(self, loaded_store: FHIRStore):
+        """When retrieval is needed, both retrieve_guidelines and fetch_patient_data run."""
+        with (
+            patch(
+                "aegis.agent.nodes.extract_entities",
+                side_effect=lambda n: {
+                    "entities": [
+                        {"text": "João", "type": "patient"},
+                        {"text": "HAS", "type": "condition"},
+                    ]
+                },
+            ),
+            patch(
+                "aegis.agent.nodes.llm_decide_retrieval",
+                return_value={"needs_retrieval": True, "queries": ["HAS tratamento"]},
+            ),
+            patch(
+                "aegis.agent.nodes.retrieve",
+                return_value=[
+                    {"text": "Diretriz HAS", "source": "has.txt", "chunk_index": 0, "score": 0.85}
+                ],
+            ),
+            patch(
+                "aegis.agent.nodes.llm_generate_report",
+                return_value={"findings": ["HAS"], "plan": ["BCC"]},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_evaluate_report",
+                return_value={"overall": {"score": 4, "feedback": "OK"}},
+            ),
+            patch("aegis.agent.nodes._store", loaded_store),
+            patch("aegis.agent.nodes._ensure_store"),
+            patch("aegis.mcp_server._store", loaded_store),
+            patch("aegis.mcp_server._load_store"),
+        ):
+            graph = build_graph()
+            result = graph.invoke(
+                {"patient_note": "Paciente João, 65a, HAS descompensada, PA 170x100"}
+            )
+
+        # Both branches should have produced output
+        assert result.get("guidelines") is not None
+        assert "Diretriz HAS" in result["guidelines"]
+        assert result.get("patient_data") is not None
+        assert "João Carlos Silva" in result["patient_data"]
+        assert result["retrieval_confidence"] == 0.85
 
 
 class TestGraphWithErrors:

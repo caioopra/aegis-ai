@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+import operator
+from typing import Annotated, Any, Literal, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -10,6 +11,10 @@ class AgentState(TypedDict, total=False):
 
     Fields use ``total=False`` so nodes can return partial updates
     (only the keys they modify).
+
+    ``warnings`` and ``errors`` use an ``operator.add`` reducer so that
+    parallel nodes (fan-out) can each append entries without conflicting.
+    Nodes should return only **new** warnings/errors, not the accumulated list.
     """
 
     # Input
@@ -30,6 +35,8 @@ class AgentState(TypedDict, total=False):
 
     # After fetch_patient_data
     patient_data: str
+    # Tools used in fetch_patient_data
+    tools_called: list[str]
 
     # After generate_report
     report: dict[str, Any]
@@ -40,6 +47,6 @@ class AgentState(TypedDict, total=False):
     # Retry loop
     retry_count: int
 
-    # Error tracking (accumulated across all nodes)
-    warnings: list[str]
-    errors: list[str]
+    # Error tracking — use ``operator.add`` reducer for parallel-safe accumulation
+    warnings: Annotated[list[str], operator.add]
+    errors: Annotated[list[str], operator.add]
