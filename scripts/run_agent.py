@@ -67,11 +67,13 @@ def main() -> None:
     retry_count = state.get("retry_count", 0)
     match_type = state.get("patient_id_match_type", "?")
     rag_conf = state.get("retrieval_confidence", 0.0)
+    tools = state.get("tools_called", [])
 
     print("\n" + "-" * 60)
     print(
         f"Tempo total: {total:.1f}s | Retries: {retry_count} | "
-        f"Paciente: {match_type} | RAG conf: {rag_conf:.2f}"
+        f"Paciente: {match_type} | RAG conf: {rag_conf:.2f} | "
+        f"Tools: {len(tools)}"
     )
     if warnings:
         print(f"Avisos ({len(warnings)}):")
@@ -110,6 +112,17 @@ def _print_node_verbose(node_name: str, output: dict, elapsed: float) -> None:
 
     elif node_name == "fetch_patient_data":
         data = output.get("patient_data", "")
+        tools = output.get("tools_called", [])
+        base_count = sum(1 for t in tools if "(" not in t)
+        extra_count = len(tools) - base_count
+        print(f"  Ferramentas: {base_count} base + {extra_count} dinâmicas")
+        if extra_count > 0:
+            dynamic = [t for t in tools if t not in (
+                "consultar_paciente", "consultar_condicoes",
+                "consultar_medicamentos", "consultar_sinais_vitais",
+            )]
+            for t in dynamic:
+                print(f"    + {t}")
         print(f"  Dados ({len(data)} chars): {data[:200]}...")
 
     elif node_name == "generate_report":
@@ -124,15 +137,9 @@ def _print_node_verbose(node_name: str, output: dict, elapsed: float) -> None:
     elif node_name == "increment_retry":
         print(f"  Retry #{output.get('retry_count', '?')}")
 
-    warnings = output.get("warnings", [])
-    if warnings:
-        new_warnings = [
-            w
-            for w in warnings
-            if node_name.replace("_", " ") in w.lower() or node_name.split("_")[0] in w.lower()
-        ]
-        for w in new_warnings:
-            print(f"  ⚠ {w}")
+    # With the operator.add reducer, each node returns only its new warnings
+    for w in output.get("warnings", []):
+        print(f"  ⚠ {w}")
 
 
 if __name__ == "__main__":
