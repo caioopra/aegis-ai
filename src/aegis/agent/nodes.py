@@ -7,16 +7,20 @@ a dict with the keys it wants to update.
 from __future__ import annotations
 
 import logging
+import re
 from itertools import combinations
 from typing import Any
 
 from aegis.agent.state import AgentState
 import aegis.fhir
 from aegis.llm import (
+    MAX_INPUT_TOKENS,
     decide_retrieval as llm_decide_retrieval,
+    estimate_tokens,
     evaluate_report as llm_evaluate_report,
     extract_entities,
     generate_report as llm_generate_report,
+    truncate_to_budget,
 )
 from aegis.mcp_server import (
     consultar_alergias,
@@ -157,7 +161,7 @@ def _match_patient_id(
     """Try to match a patient ID from extracted entities and the raw note.
 
     Returns ``(patient_id, match_type)`` where match_type is one of:
-    ``"exact"``, ``"partial"``, ``"fallback"``, or ``"none"``.
+    ``"exact"``, ``"partial"``, or ``"none"``.
     """
     patients = aegis.fhir.get_store().list_patients()
     if not patients:
@@ -176,15 +180,19 @@ def _match_patient_id(
     # Try to match by name
     for p in patients:
         name_parts = p["name"].lower().split()
-        matched_parts = [part for part in name_parts if len(part) > 2 and part in search_text]
+        matched_parts = [
+            part
+            for part in name_parts
+            if len(part) > 2 and re.search(r"\b" + re.escape(part) + r"\b", search_text)
+        ]
         if matched_parts:
             # Check if most name parts matched (exact) or just some (partial)
             match_ratio = len(matched_parts) / len([n for n in name_parts if len(n) > 2])
             match_type = "exact" if match_ratio >= 0.5 else "partial"
             return p["id"], match_type
 
-    # Fallback: first patient
-    return patients[0]["id"], "fallback"
+    # No match found — return empty to avoid using wrong patient data
+    return "", "none"
 
 
 # ------------------------------------------------------------------
@@ -210,10 +218,8 @@ def parse_note(state: AgentState) -> dict[str, Any]:
 
     patient_id, match_type = _match_patient_id(entities, note=note)
 
-    if match_type == "fallback":
-        warnings.append(
-            f"parse_note: paciente não identificado na nota, usando fallback: {patient_id}"
-        )
+    if match_type == "none" and patient_id == "":
+        warnings.append("parse_note: paciente não identificado na nota")
 
     return {
         "extracted_entities": entities,
@@ -312,7 +318,7 @@ def fetch_patient_data(state: AgentState) -> dict[str, Any]:
 
     if not patient_id:
         return {
-            "patient_data": "Paciente não identificado.",
+            "patient_data": "Paciente não identificado — dados clínicos não recuperados.",
             "tools_called": [],
             "warnings": warnings,
         }
@@ -403,6 +409,27 @@ def generate_report(state: AgentState) -> dict[str, Any]:
                 "## Previous Evaluation Feedback (improve on these points)\n"
                 + "\n".join(feedback_parts)
             )
+
+    # Context budget management — truncate large sections to fit model window
+    prompt_overhead = 200  # template text + JSON structure instructions
+    total_tokens = (
+        prompt_overhead
+        + estimate_tokens(note)
+        + estimate_tokens(patient_data)
+        + estimate_tokens(guidelines)
+        + estimate_tokens(refinement_context)
+    )
+
+    if total_tokens > MAX_INPUT_TOKENS:
+        # Truncate the largest sections first; keep note untruncated (doctor's input)
+        budget_remaining = MAX_INPUT_TOKENS - prompt_overhead - estimate_tokens(note)
+        half_budget = budget_remaining // 2
+        patient_data = truncate_to_budget(patient_data, half_budget, "dados do paciente")
+        guidelines = truncate_to_budget(guidelines, half_budget, "diretrizes")
+        warnings.append(
+            f"generate_report: contexto truncado ({total_tokens} tokens estimados, "
+            f"limite {MAX_INPUT_TOKENS})"
+        )
 
     try:
         report = llm_generate_report(

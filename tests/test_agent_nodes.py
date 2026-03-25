@@ -73,7 +73,7 @@ class TestParseNote:
         assert result["patient_id"] == ""
         assert result["patient_id_match_type"] == "none"
 
-    def test_sets_match_type_fallback(self, loaded_store: FHIRStore):
+    def test_sets_match_type_none_when_no_match(self, loaded_store: FHIRStore):
         mock_result = {
             "entities": [{"text": "Maria", "type": "patient", "normalized": "Maria Santos"}]
         }
@@ -84,8 +84,9 @@ class TestParseNote:
             state = {"patient_note": "Paciente Maria"}
             result = parse_note(state)
 
-        assert result["patient_id_match_type"] == "fallback"
-        assert any("fallback" in w for w in result["warnings"])
+        assert result["patient_id"] == ""
+        assert result["patient_id_match_type"] == "none"
+        assert any("não identificado" in w for w in result["warnings"])
 
     def test_recovers_from_llm_failure(self, loaded_store: FHIRStore):
         with (
@@ -161,13 +162,13 @@ class TestMatchPatientId:
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
 
-    def test_fallback_to_first_patient(self, loaded_store: FHIRStore):
+    def test_returns_none_when_no_name_matches(self, loaded_store: FHIRStore):
         entities = [{"text": "Maria", "type": "patient", "normalized": "Maria Santos"}]
         with _patch_store(loaded_store):
             patient_id, match_type = _match_patient_id(entities, note="Paciente Maria")
-        # No match for Maria, falls back to first available
-        assert patient_id == PATIENT_ID
-        assert match_type == "fallback"
+        # No match for Maria — returns empty instead of wrong patient
+        assert patient_id == ""
+        assert match_type == "none"
 
     def test_returns_none_when_no_patients(self):
         entities = [{"text": "João", "type": "patient", "normalized": "João"}]
@@ -184,6 +185,41 @@ class TestMatchPatientId:
             )
         assert patient_id == PATIENT_ID
         assert match_type == "exact"
+
+    def test_word_boundary_prevents_false_positive(self):
+        """'Ana' in entity should NOT match a patient named 'Anamnese Teste'."""
+        store = FHIRStore()
+        # Manually add a patient whose name contains 'Anamnese' — substring
+        # of 'Ana' should NOT match thanks to word-boundary regex.
+        store._patients["patient-anamnese"] = {
+            "resourceType": "Patient",
+            "id": "patient-anamnese",
+            "name": [{"use": "official", "given": ["Anamnese"], "family": "Teste"}],
+            "birthDate": "1990-01-01",
+            "gender": "female",
+        }
+        entities = [{"text": "Ana", "type": "patient", "normalized": "Ana"}]
+        with _patch_store(store):
+            patient_id, match_type = _match_patient_id(entities, note="Paciente Ana")
+        # 'Ana' should NOT match 'Anamnese' — word boundary prevents it
+        assert patient_id == ""
+        assert match_type == "none"
+
+    def test_word_boundary_allows_correct_match(self):
+        """'Ana' should match patient 'Ana Maria Santos'."""
+        store = FHIRStore()
+        store._patients["patient-ana"] = {
+            "resourceType": "Patient",
+            "id": "patient-ana",
+            "name": [{"use": "official", "given": ["Ana", "Maria"], "family": "Santos"}],
+            "birthDate": "1985-05-15",
+            "gender": "female",
+        }
+        entities = [{"text": "Ana", "type": "patient", "normalized": "Ana"}]
+        with _patch_store(store):
+            patient_id, match_type = _match_patient_id(entities, note="Paciente Ana")
+        assert patient_id == "patient-ana"
+        assert match_type in ("exact", "partial")
 
 
 # ------------------------------------------------------------------
@@ -435,6 +471,7 @@ class TestFetchPatientData:
         state = {"patient_id": ""}
         result = fetch_patient_data(state)
         assert "não identificado" in result["patient_data"]
+        assert "não recuperados" in result["patient_data"]
         assert result["tools_called"] == []
 
     def test_recovers_from_partial_tool_failure(self, loaded_store: FHIRStore):
@@ -602,6 +639,45 @@ class TestGenerateReport:
 
         assert "error" in result["report"]
         assert any("falha" in w for w in result["warnings"])
+
+    def test_generate_report_truncates_large_context(self):
+        mock_report = {
+            "patient_summary": "Resumo",
+            "findings": ["achado"],
+            "assessment": "avaliação",
+            "plan": ["plano"],
+        }
+        with patch("aegis.agent.nodes.llm_generate_report", return_value=mock_report) as mock:
+            state = {
+                "patient_note": "Paciente João",
+                "patient_data": "x" * 30000,  # huge
+                "guidelines": "y" * 30000,  # huge
+                "retry_count": 0,
+            }
+            result = generate_report(state)
+
+            # The function should still succeed (truncated input)
+            assert result["report"] == mock_report
+            # It should add a warning about truncation
+            assert any("truncado" in w for w in result["warnings"])
+            # The actual data passed to llm should be truncated
+            call_kwargs = mock.call_args.kwargs
+            assert len(call_kwargs["patient_data"]) < 30000
+            assert len(call_kwargs["guidelines"]) < 30000
+
+    def test_generate_report_no_truncation_for_small_context(self):
+        mock_report = {"findings": []}
+        with patch("aegis.agent.nodes.llm_generate_report", return_value=mock_report):
+            state = {
+                "patient_note": "Nota curta",
+                "patient_data": "Dados curtos",
+                "guidelines": "Diretrizes curtas",
+                "retry_count": 0,
+            }
+            result = generate_report(state)
+
+            # No truncation warning expected
+            assert not any("truncado" in w for w in result["warnings"])
 
 
 # ------------------------------------------------------------------
