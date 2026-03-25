@@ -9,17 +9,20 @@ from aegis.llm import (
     EXPAND_NOTE_PROMPT,
     ENTITY_EXTRACTION_PROMPT,
     EVALUATE_REPORT_PROMPT,
+    MAX_INPUT_TOKENS,
     REPORT_PROMPT,
     SELF_RAG_DECISION_PROMPT,
     SYSTEM_MEDICAL,
     _extract_json,
     decide_retrieval,
+    estimate_tokens,
     evaluate_report,
     expand_note,
     extract_entities,
     generate,
     generate_json,
     generate_report,
+    truncate_to_budget,
 )
 
 
@@ -353,6 +356,37 @@ class TestHighLevelFunctionsMocked:
         evaluate_report({"findings": []})
         prompt_arg = mock_gen.call_args[0][0]
         assert "Não disponível" in prompt_arg
+
+
+# ── Token estimation tests ───────────────────────────────────────────────
+
+
+class TestTokenEstimation:
+    """Verify token estimation and truncation utilities."""
+
+    def test_estimate_tokens_basic(self):
+        assert estimate_tokens("") == 0
+        assert estimate_tokens("abcd") == 1
+        assert estimate_tokens("a" * 400) == 100
+
+    def test_truncate_to_budget_within_budget(self):
+        text = "short text"
+        result = truncate_to_budget(text, 100)
+        assert result == text  # no truncation
+
+    def test_truncate_to_budget_exceeds(self):
+        text = "a" * 800  # ~200 tokens
+        result = truncate_to_budget(text, 50, "teste")
+        assert len(result) < 800
+        assert "[teste truncado" in result
+
+    def test_truncate_to_budget_preserves_label(self):
+        text = "a" * 800
+        result = truncate_to_budget(text, 50, "dados do paciente")
+        assert "dados do paciente" in result
+
+    def test_max_input_tokens_is_positive(self):
+        assert MAX_INPUT_TOKENS > 0
 
 
 # ── Integration tests (require live Ollama) ──────────────────────────────

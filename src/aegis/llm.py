@@ -145,6 +145,36 @@ Respond ONLY with valid JSON, no extra text.
 
 
 # ---------------------------------------------------------------------------
+# Token estimation & context budget
+# ---------------------------------------------------------------------------
+
+MAX_INPUT_TOKENS = 5000  # conservative for Mistral 8K (leaves ~3K for output)
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count for a text string.
+
+    Uses a simple heuristic: ~4 characters per token for Portuguese/English
+    mixed text. This is approximate but sufficient for budget management.
+    """
+    return len(text) // 4
+
+
+def truncate_to_budget(
+    text: str,
+    max_tokens: int,
+    label: str = "conteúdo",
+) -> str:
+    """Truncate text to fit within a token budget, adding a note if truncated."""
+    current = estimate_tokens(text)
+    if current <= max_tokens:
+        return text
+    # Truncate to approximate character count
+    max_chars = max_tokens * 4
+    return text[:max_chars] + f"\n\n[{label} truncado por limitação de contexto]"
+
+
+# ---------------------------------------------------------------------------
 # Client functions
 # ---------------------------------------------------------------------------
 
