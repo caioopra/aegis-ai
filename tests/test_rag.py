@@ -9,10 +9,10 @@ import pytest
 from qdrant_client import QdrantClient
 
 from aegis.rag.ingest import (
-    EMBEDDING_DIM,
     chunk_documents,
     chunk_text,
     ensure_collection,
+    get_embedding_dim,
     get_qdrant_client,
     load_all_documents,
     load_document,
@@ -37,13 +37,13 @@ def _fake_embedding(text: str) -> list[float]:
     h = hashlib.sha256(text.encode()).hexdigest()
     # Convert hex to floats in [-1, 1] range
     values = []
-    for i in range(0, min(len(h) * 2, EMBEDDING_DIM), 1):
+    for i in range(0, min(len(h) * 2, get_embedding_dim()), 1):
         byte_val = int(h[i % len(h)], 16) / 15.0  # 0..1
         values.append(byte_val * 2 - 1)  # -1..1
-    # Pad to EMBEDDING_DIM
-    while len(values) < EMBEDDING_DIM:
+    # Pad to get_embedding_dim()
+    while len(values) < get_embedding_dim():
         values.append(0.0)
-    return values[:EMBEDDING_DIM]
+    return values[: get_embedding_dim()]
 
 
 def _fake_sparse(text: str) -> tuple[list[int], list[float]]:
@@ -523,7 +523,7 @@ class TestRAGIntegration:
 
         vec = embed_text("hipertensão arterial")
         assert isinstance(vec, list)
-        assert len(vec) == EMBEDDING_DIM
+        assert len(vec) == get_embedding_dim()
         assert all(isinstance(v, float) for v in vec)
 
     def test_full_ingest_and_retrieve(self, tmp_path: Path):

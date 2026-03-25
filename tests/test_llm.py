@@ -1,7 +1,7 @@
 """Unit and integration tests for aegis.llm — LLM client and prompt templates."""
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -151,108 +151,119 @@ class TestExtractJson:
 
 
 class TestGenerateMocked:
-    """Unit tests for generate() with Ollama mocked out."""
+    """Unit tests for generate() with the chat provider mocked out."""
 
-    @patch("aegis.llm.ollama.chat")
-    def test_generate_returns_content(self, mock_chat):
-        mock_chat.return_value = {"message": {"content": "Hello, doctor."}}
+    @patch("aegis.llm._get_chat")
+    def test_generate_returns_content(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = "Hello, doctor."
+        mock_get_chat.return_value = mock_provider
         result = generate("Test prompt")
         assert result == "Hello, doctor."
 
-    @patch("aegis.llm.ollama.chat")
-    def test_generate_passes_system_prompt(self, mock_chat):
-        mock_chat.return_value = {"message": {"content": "ok"}}
+    @patch("aegis.llm._get_chat")
+    def test_generate_passes_system_prompt(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = "ok"
+        mock_get_chat.return_value = mock_provider
         generate("Test", system_prompt="Custom system")
-        call_args = mock_chat.call_args
-        messages = call_args.kwargs["messages"]
-        assert messages[0]["role"] == "system"
-        assert messages[0]["content"] == "Custom system"
+        call_args = mock_provider.chat.call_args
+        assert call_args.kwargs["system_prompt"] == "Custom system"
 
-    @patch("aegis.llm.ollama.chat")
-    def test_generate_passes_user_prompt(self, mock_chat):
-        mock_chat.return_value = {"message": {"content": "ok"}}
+    @patch("aegis.llm._get_chat")
+    def test_generate_passes_user_prompt(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = "ok"
+        mock_get_chat.return_value = mock_provider
         generate("My user prompt")
-        call_args = mock_chat.call_args
+        call_args = mock_provider.chat.call_args
         messages = call_args.kwargs["messages"]
-        assert messages[1]["role"] == "user"
-        assert messages[1]["content"] == "My user prompt"
+        assert messages[0]["role"] == "user"
+        assert messages[0]["content"] == "My user prompt"
 
-    @patch("aegis.llm.ollama.chat")
-    def test_generate_uses_configured_model(self, mock_chat):
-        mock_chat.return_value = {"message": {"content": "ok"}}
+    @patch("aegis.llm._get_chat")
+    def test_generate_uses_low_temperature(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = "ok"
+        mock_get_chat.return_value = mock_provider
         generate("Test")
-        call_args = mock_chat.call_args
-        assert call_args.kwargs["model"] == "mistral"
-
-    @patch("aegis.llm.ollama.chat")
-    def test_generate_uses_low_temperature(self, mock_chat):
-        mock_chat.return_value = {"message": {"content": "ok"}}
-        generate("Test")
-        call_args = mock_chat.call_args
-        assert call_args.kwargs["options"]["temperature"] == 0.3
+        call_args = mock_provider.chat.call_args
+        assert call_args.kwargs["temperature"] == 0.3
 
 
 # ── generate_json() mocked tests ────────────────────────────────────────
 
 
 class TestGenerateJsonMocked:
-    """Unit tests for generate_json() with Ollama mocked."""
+    """Unit tests for generate_json() with the chat provider mocked."""
 
-    @patch("aegis.llm.ollama.chat")
-    def test_returns_parsed_json(self, mock_chat):
+    @patch("aegis.llm._get_chat")
+    def test_returns_parsed_json(self, mock_get_chat):
+        mock_provider = MagicMock()
         payload = {"expanded_note": "test", "entities": []}
-        mock_chat.return_value = {"message": {"content": json.dumps(payload)}}
+        mock_provider.chat.return_value = json.dumps(payload)
+        mock_get_chat.return_value = mock_provider
         result = generate_json("Test")
         assert result == payload
 
-    @patch("aegis.llm.ollama.chat")
-    def test_uses_json_format(self, mock_chat):
-        mock_chat.return_value = {"message": {"content": '{"key": "val"}'}}
+    @patch("aegis.llm._get_chat")
+    def test_uses_json_mode(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = '{"key": "val"}'
+        mock_get_chat.return_value = mock_provider
         generate_json("Test")
-        call_args = mock_chat.call_args
-        assert call_args.kwargs["format"] == "json"
+        call_args = mock_provider.chat.call_args
+        assert call_args.kwargs["json_mode"] is True
 
-    @patch("aegis.llm.ollama.chat")
-    def test_retries_on_json_decode_error(self, mock_chat):
+    @patch("aegis.llm._get_chat")
+    def test_retries_on_json_decode_error(self, mock_get_chat):
+        mock_provider = MagicMock()
         # First 2 calls return invalid JSON, third succeeds
-        mock_chat.side_effect = [
-            {"message": {"content": "not json"}},
-            {"message": {"content": "still not json"}},
-            {"message": {"content": '{"ok": true}'}},
+        mock_provider.chat.side_effect = [
+            "not json",
+            "still not json",
+            '{"ok": true}',
         ]
+        mock_get_chat.return_value = mock_provider
         result = generate_json("Test", max_retries=3)
         assert result == {"ok": True}
-        assert mock_chat.call_count == 3
+        assert mock_provider.chat.call_count == 3
 
-    @patch("aegis.llm.ollama.chat")
-    def test_falls_back_to_extract_after_all_retries(self, mock_chat):
-        # All retries fail with format=json, final fallback without format succeeds
-        mock_chat.side_effect = [
-            {"message": {"content": "bad"}},  # retry 1
-            {"message": {"content": "bad"}},  # retry 2
-            {"message": {"content": "bad"}},  # retry 3
-            {"message": {"content": '{"fallback": true}'}},  # fallback generate()
+    @patch("aegis.llm._get_chat")
+    def test_falls_back_to_extract_after_all_retries(self, mock_get_chat):
+        mock_provider = MagicMock()
+        # All retries fail with json_mode, final fallback without json_mode succeeds
+        mock_provider.chat.side_effect = [
+            "bad",  # retry 1
+            "bad",  # retry 2
+            "bad",  # retry 3
+            '{"fallback": true}',  # fallback generate()
         ]
+        mock_get_chat.return_value = mock_provider
         result = generate_json("Test", max_retries=3)
         assert result == {"fallback": True}
 
-    @patch("aegis.llm.ollama.chat")
-    def test_raises_after_all_retries_and_fallback_fail(self, mock_chat):
-        mock_chat.side_effect = [
-            {"message": {"content": "bad"}},
-            {"message": {"content": "bad"}},
-            {"message": {"content": "bad"}},
-            {"message": {"content": "still no json"}},
+    @patch("aegis.llm._get_chat")
+    def test_raises_after_all_retries_and_fallback_fail(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.side_effect = [
+            "bad",
+            "bad",
+            "bad",
+            "still no json",
         ]
+        mock_get_chat.return_value = mock_provider
         with pytest.raises(ValueError, match="All 3 attempts failed"):
             generate_json("Test", max_retries=3)
 
-    @patch("aegis.llm.ollama.chat")
-    def test_retries_on_connection_error(self, mock_chat):
-        mock_chat.side_effect = [
-            ConnectionError("Ollama down"),
-            {"message": {"content": '{"ok": true}'}},
+    @patch("aegis.llm._get_chat")
+    def test_retries_on_connection_error(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.side_effect = [
+            ConnectionError("Provider down"),
+            '{"ok": true}',
         ]
+        mock_get_chat.return_value = mock_provider
         result = generate_json("Test", max_retries=2)
         assert result == {"ok": True}
 
