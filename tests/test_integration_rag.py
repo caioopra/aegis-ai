@@ -20,7 +20,10 @@ class TestRAGIntegration:
         self.client = client
         # ingest_guidelines uses settings.qdrant_collection internally
         self.collection = "clinical_guidelines"
-        with patch("aegis.rag.retriever.settings") as mock_settings:
+        with (
+            patch("aegis.rag.retriever.settings") as mock_settings,
+            patch("aegis.rag.retriever._bm25", None),
+        ):
             mock_settings.bm25_stats_path = bm25_path
             mock_settings.qdrant_collection = self.collection
             yield

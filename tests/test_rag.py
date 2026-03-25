@@ -298,6 +298,7 @@ class TestHybridRetrieval:
         with (
             patch("aegis.rag.retriever.embed_text", return_value=query_vec),
             patch("aegis.rag.retriever.settings") as mock_settings,
+            patch("aegis.rag.retriever._bm25", None),
         ):
             mock_settings.qdrant_collection = "test_coll"
             mock_settings.bm25_stats_path = bm25_stats
@@ -315,6 +316,7 @@ class TestHybridRetrieval:
         with (
             patch("aegis.rag.retriever.embed_text", return_value=query_vec),
             patch("aegis.rag.retriever.settings") as mock_settings,
+            patch("aegis.rag.retriever._bm25", None),
         ):
             mock_settings.qdrant_collection = "test_coll"
             mock_settings.bm25_stats_path = bm25_stats
@@ -335,6 +337,7 @@ class TestHybridRetrieval:
         with (
             patch("aegis.rag.retriever.embed_text", return_value=query_vec),
             patch("aegis.rag.retriever.settings") as mock_settings,
+            patch("aegis.rag.retriever._bm25", None),
         ):
             mock_settings.qdrant_collection = "test_coll"
             mock_settings.bm25_stats_path = bm25_stats
@@ -549,7 +552,10 @@ class TestRAGIntegration:
         assert "hipertensão" in combined or "pressão" in combined
 
         # Test hybrid retrieval
-        with patch("aegis.rag.retriever.settings") as mock_settings:
+        with (
+            patch("aegis.rag.retriever.settings") as mock_settings,
+            patch("aegis.rag.retriever._bm25", None),
+        ):
             mock_settings.bm25_stats_path = bm25_path
             mock_settings.qdrant_collection = "test_integration"
             results_hybrid = retrieve(

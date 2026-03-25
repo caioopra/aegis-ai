@@ -17,6 +17,30 @@ from aegis.rag.ingest import embed_text, get_qdrant_client
 from aegis.rag.sparse import BM25Vectorizer
 
 # ---------------------------------------------------------------------------
+# Lazy singletons
+# ---------------------------------------------------------------------------
+
+_bm25: BM25Vectorizer | None = None
+_qdrant_client: QdrantClient | None = None
+
+
+def _get_bm25() -> BM25Vectorizer:
+    """Return the cached BM25Vectorizer, loading from disk on first call."""
+    global _bm25
+    if _bm25 is None:
+        _bm25 = BM25Vectorizer.load(settings.bm25_stats_path)
+    return _bm25
+
+
+def _get_qdrant() -> QdrantClient:
+    """Return the cached Qdrant client singleton."""
+    global _qdrant_client
+    if _qdrant_client is None:
+        _qdrant_client = get_qdrant_client()
+    return _qdrant_client
+
+
+# ---------------------------------------------------------------------------
 # Retrieval
 # ---------------------------------------------------------------------------
 
@@ -42,7 +66,7 @@ def retrieve(
     Returns a list of dicts with ``text``, ``source``, ``chunk_index``,
     and ``score``, sorted by descending relevance.
     """
-    client = client or get_qdrant_client()
+    client = client or _get_qdrant()
     collection = collection or settings.qdrant_collection
 
     if mode == "hybrid":
@@ -81,8 +105,8 @@ def _retrieve_hybrid(
     """Hybrid retrieval: dense + sparse fused with Reciprocal Rank Fusion."""
     query_vector = embed_text(query)
 
-    # Load BM25 stats and compute sparse query vector
-    bm25 = BM25Vectorizer.load(settings.bm25_stats_path)
+    # Compute sparse query vector using cached BM25
+    bm25 = _get_bm25()
     indices, values = bm25.encode_query(query)
 
     results = client.query_points(

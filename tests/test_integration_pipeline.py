@@ -80,11 +80,10 @@ class TestFullPipelineIntegration:
         client, _collection, bm25_path = ingested_rag_env
         actual_collection = "clinical_guidelines"
         with (
-            patch("aegis.agent.nodes._store", fhir_store),
-            patch("aegis.agent.nodes._ensure_store", lambda: None),
-            patch("aegis.mcp_server._store", fhir_store),
-            patch("aegis.mcp_server._load_store", lambda: None),
+            patch("aegis.fhir.get_store", return_value=fhir_store),
             patch("aegis.rag.retriever.get_qdrant_client", return_value=client),
+            patch("aegis.rag.retriever._qdrant_client", None),
+            patch("aegis.rag.retriever._bm25", None),
             patch("aegis.rag.retriever.settings") as mock_settings,
         ):
             mock_settings.bm25_stats_path = bm25_path
@@ -194,11 +193,10 @@ class TestEdgeCasesIntegration:
         client, _collection, bm25_path = ingested_rag_env
         actual_collection = "clinical_guidelines"
         with (
-            patch("aegis.agent.nodes._store", fhir_store),
-            patch("aegis.agent.nodes._ensure_store", lambda: None),
-            patch("aegis.mcp_server._store", fhir_store),
-            patch("aegis.mcp_server._load_store", lambda: None),
+            patch("aegis.fhir.get_store", return_value=fhir_store),
             patch("aegis.rag.retriever.get_qdrant_client", return_value=client),
+            patch("aegis.rag.retriever._qdrant_client", None),
+            patch("aegis.rag.retriever._bm25", None),
             patch("aegis.rag.retriever.settings") as mock_settings,
         ):
             mock_settings.bm25_stats_path = bm25_path
@@ -318,11 +316,10 @@ class TestNodeObservability:
         client, _collection, bm25_path = ingested_rag_env
         actual_collection = "clinical_guidelines"
         with (
-            patch("aegis.agent.nodes._store", fhir_store),
-            patch("aegis.agent.nodes._ensure_store", lambda: None),
-            patch("aegis.mcp_server._store", fhir_store),
-            patch("aegis.mcp_server._load_store", lambda: None),
+            patch("aegis.fhir.get_store", return_value=fhir_store),
             patch("aegis.rag.retriever.get_qdrant_client", return_value=client),
+            patch("aegis.rag.retriever._qdrant_client", None),
+            patch("aegis.rag.retriever._bm25", None),
             patch("aegis.rag.retriever.settings") as mock_settings,
         ):
             mock_settings.bm25_stats_path = bm25_path
@@ -420,11 +417,10 @@ class TestMultiPatientIntegration:
         client, _collection, bm25_path = ingested_rag_env
         actual_collection = "clinical_guidelines"
         with (
-            patch("aegis.agent.nodes._store", multi_patient_fhir_store),
-            patch("aegis.agent.nodes._ensure_store", lambda: None),
-            patch("aegis.mcp_server._store", multi_patient_fhir_store),
-            patch("aegis.mcp_server._load_store", lambda: None),
+            patch("aegis.fhir.get_store", return_value=multi_patient_fhir_store),
             patch("aegis.rag.retriever.get_qdrant_client", return_value=client),
+            patch("aegis.rag.retriever._qdrant_client", None),
+            patch("aegis.rag.retriever._bm25", None),
             patch("aegis.rag.retriever.settings") as mock_settings,
         ):
             mock_settings.bm25_stats_path = bm25_path
