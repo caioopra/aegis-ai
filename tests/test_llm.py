@@ -223,8 +223,9 @@ class TestGenerateJsonMocked:
         call_args = mock_provider.chat.call_args
         assert call_args.kwargs["json_mode"] is True
 
+    @patch("aegis.llm.time.sleep")
     @patch("aegis.llm._get_chat")
-    def test_retries_on_json_decode_error(self, mock_get_chat):
+    def test_retries_on_json_decode_error(self, mock_get_chat, mock_sleep):
         mock_provider = MagicMock()
         # First 2 calls return invalid JSON, third succeeds
         mock_provider.chat.side_effect = [
@@ -237,8 +238,9 @@ class TestGenerateJsonMocked:
         assert result == {"ok": True}
         assert mock_provider.chat.call_count == 3
 
+    @patch("aegis.llm.time.sleep")
     @patch("aegis.llm._get_chat")
-    def test_falls_back_to_extract_after_all_retries(self, mock_get_chat):
+    def test_falls_back_to_extract_after_all_retries(self, mock_get_chat, mock_sleep):
         mock_provider = MagicMock()
         # All retries fail with json_mode, final fallback without json_mode succeeds
         mock_provider.chat.side_effect = [
@@ -251,8 +253,9 @@ class TestGenerateJsonMocked:
         result = generate_json("Test", max_retries=3)
         assert result == {"fallback": True}
 
+    @patch("aegis.llm.time.sleep")
     @patch("aegis.llm._get_chat")
-    def test_raises_after_all_retries_and_fallback_fail(self, mock_get_chat):
+    def test_raises_after_all_retries_and_fallback_fail(self, mock_get_chat, mock_sleep):
         mock_provider = MagicMock()
         mock_provider.chat.side_effect = [
             "bad",
@@ -264,8 +267,9 @@ class TestGenerateJsonMocked:
         with pytest.raises(ValueError, match="All 3 attempts failed"):
             generate_json("Test", max_retries=3)
 
+    @patch("aegis.llm.time.sleep")
     @patch("aegis.llm._get_chat")
-    def test_retries_on_connection_error(self, mock_get_chat):
+    def test_retries_on_connection_error(self, mock_get_chat, mock_sleep):
         mock_provider = MagicMock()
         mock_provider.chat.side_effect = [
             ConnectionError("Provider down"),

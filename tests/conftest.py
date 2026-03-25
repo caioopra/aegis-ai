@@ -68,6 +68,27 @@ SYNTHEA_PATIENT_PATHS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _reset_singletons():
+    """Reset module-level singletons to prevent state leakage between tests."""
+    import aegis.llm
+    import aegis.rag.ingest
+    import aegis.rag.retriever
+    import aegis.fhir
+
+    aegis.llm._chat_provider = None
+    aegis.rag.ingest._embedder = None
+    aegis.rag.retriever._bm25 = None
+    aegis.rag.retriever._qdrant_client = None
+    aegis.fhir._shared_store = None
+    yield
+    aegis.llm._chat_provider = None
+    aegis.rag.ingest._embedder = None
+    aegis.rag.retriever._bm25 = None
+    aegis.rag.retriever._qdrant_client = None
+    aegis.fhir._shared_store = None
+
+
 @pytest.fixture
 def sample_note() -> str:
     return "Paciente João, 65a, c/ dispneia aos esforços, DPN, edema MMII. PA 150x95. Uso de losartana 50mg e HCTZ 25mg."
