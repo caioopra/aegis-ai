@@ -4,7 +4,7 @@ import argparse
 import json
 import time
 
-from aegis.agent.graph import build_graph
+from aegis.agent.runner import stream_pipeline
 
 
 def main() -> None:
@@ -29,23 +29,15 @@ def main() -> None:
     print("=" * 60)
     print(f"\nNota recebida:\n  {args.note}\n")
 
-    graph = build_graph()
     state: dict = {}
     t0 = time.perf_counter()
-    prev_time = t0
 
-    for step in graph.stream({"patient_note": args.note}):
-        now = time.perf_counter()
-        elapsed = now - prev_time
-        prev_time = now
-
-        for node_name, node_output in step.items():
-            state.update(node_output)
-
-            if args.verbose:
-                _print_node_verbose(node_name, node_output, elapsed)
-            else:
-                _print_node_brief(node_name, elapsed)
+    for node_name, node_output, elapsed in stream_pipeline(args.note):
+        state.update(node_output)
+        if args.verbose:
+            _print_node_verbose(node_name, node_output, elapsed)
+        else:
+            _print_node_brief(node_name, elapsed)
 
     total = time.perf_counter() - t0
 

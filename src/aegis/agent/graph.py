@@ -14,6 +14,8 @@ FHIR uses patient_id.  Both must complete before ``generate_report`` starts
 
 from __future__ import annotations
 
+from typing import Any
+
 from langgraph.graph import END, StateGraph
 
 from aegis.agent.nodes import (
@@ -66,8 +68,12 @@ def _increment_retry(state: AgentState) -> dict:
     }
 
 
-def build_graph() -> StateGraph:
-    """Build and return the compiled clinical agent graph."""
+def build_graph(checkpointer: Any | None = None) -> StateGraph:
+    """Build and return the compiled clinical agent graph.
+
+    Args:
+        checkpointer: Optional LangGraph checkpointer for session memory.
+    """
     graph = StateGraph(AgentState)
 
     # Add nodes
@@ -110,7 +116,10 @@ def build_graph() -> StateGraph:
     )
     graph.add_edge("increment_retry", "generate_report")
 
-    return graph.compile()
+    kwargs: dict[str, Any] = {}
+    if checkpointer is not None:
+        kwargs["checkpointer"] = checkpointer
+    return graph.compile(**kwargs)
 
 
 # Module-level compiled graph

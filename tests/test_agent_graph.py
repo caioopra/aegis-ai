@@ -345,3 +345,86 @@ class TestGraphWithErrors:
         assert "report" in result
         assert "evaluation" in result
         assert len(result.get("warnings", [])) > 0
+
+
+# ------------------------------------------------------------------
+# Runner module (run_pipeline / stream_pipeline)
+# ------------------------------------------------------------------
+
+
+class TestRunnerModule:
+    """Verify the programmatic runner entry points."""
+
+    def test_run_pipeline_returns_state(self, loaded_store: FHIRStore):
+        with (
+            patch(
+                "aegis.agent.nodes.extract_entities",
+                side_effect=lambda n: {"entities": [{"text": "João", "type": "patient"}]},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_decide_retrieval",
+                return_value={"needs_retrieval": True, "queries": ["HAS"]},
+            ),
+            patch(
+                "aegis.agent.nodes.retrieve",
+                return_value=[
+                    {
+                        "text": "Tratar HAS",
+                        "source": "has.txt",
+                        "chunk_index": 0,
+                        "score": 0.9,
+                    }
+                ],
+            ),
+            patch(
+                "aegis.agent.nodes.llm_generate_report",
+                return_value={"findings": ["HAS"], "plan": ["BCC"]},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_evaluate_report",
+                return_value={"overall": {"score": 4, "feedback": "OK"}},
+            ),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
+        ):
+            from aegis.agent.runner import run_pipeline
+
+            result = run_pipeline("Paciente João, 65a, HAS")
+
+        assert "report" in result
+        assert "evaluation" in result
+        assert result["report"] == {"findings": ["HAS"], "plan": ["BCC"]}
+        assert result["evaluation"]["overall"]["score"] == 4
+
+    def test_stream_pipeline_yields_steps(self, loaded_store: FHIRStore):
+        with (
+            patch(
+                "aegis.agent.nodes.extract_entities",
+                side_effect=lambda n: {"entities": [{"text": "João", "type": "patient"}]},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_decide_retrieval",
+                return_value={"needs_retrieval": False, "queries": []},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_generate_report",
+                return_value={"findings": [], "plan": []},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_evaluate_report",
+                return_value={"overall": {"score": 3, "feedback": "OK"}},
+            ),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
+        ):
+            from aegis.agent.runner import stream_pipeline
+
+            steps = list(stream_pipeline("Paciente João, 65a, retorno"))
+
+        # Each step is a (node_name, output_dict, elapsed_float) tuple
+        assert len(steps) >= 4  # at least parse, decide, fetch, generate, evaluate
+        node_names = [name for name, _output, _elapsed in steps]
+        assert "parse_note" in node_names
+        assert "generate_report" in node_names
+        assert "evaluate_report" in node_names
+        for _name, _output, elapsed in steps:
+            assert isinstance(elapsed, float)
+            assert elapsed >= 0.0
