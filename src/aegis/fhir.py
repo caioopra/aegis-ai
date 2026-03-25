@@ -156,3 +156,15 @@ class FHIRStore:
         given = " ".join(name.get("given", []))
         family = name.get("family", "")
         return f"{given} {family}".strip() or "Desconhecido"
+
+
+_shared_store: FHIRStore | None = None
+
+
+def get_store() -> FHIRStore:
+    """Return the shared FHIRStore singleton, loading data on first call."""
+    global _shared_store
+    if _shared_store is None:
+        _shared_store = FHIRStore()
+        _shared_store.load_directory()
+    return _shared_store

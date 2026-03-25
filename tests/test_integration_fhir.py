@@ -41,10 +41,7 @@ class TestMCPFHIRIntegration:
 
     @pytest.fixture(autouse=True)
     def _patch_store(self, fhir_store: FHIRStore) -> None:
-        with (
-            patch("aegis.mcp_server._store", fhir_store),
-            patch("aegis.mcp_server._load_store", lambda: None),
-        ):
+        with patch("aegis.fhir.get_store", return_value=fhir_store):
             yield
 
     def test_listar_pacientes(self) -> None:

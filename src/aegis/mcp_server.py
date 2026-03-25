@@ -6,13 +6,10 @@ from datetime import date
 
 from mcp.server.fastmcp import FastMCP
 
+import aegis.fhir
 from aegis.fhir import FHIRStore, Resource
 
 mcp = FastMCP("AegisNode Clinical Server")
-
-# Module-level store — populated once at startup via the lifespan or
-# explicitly with ``_load_store()``.
-_store = FHIRStore()
 
 # ------------------------------------------------------------------
 # Known drug interactions (simplified, for educational purposes)
@@ -50,12 +47,6 @@ DRUG_INTERACTIONS: dict[frozenset[str], str] = {
         "digitálica. Monitorar potássio e digoxina."
     ),
 }
-
-
-def _load_store() -> None:
-    """Load FHIR bundles into the module-level store (idempotent)."""
-    if not _store.list_patients():
-        _store.load_directory()
 
 
 # ------------------------------------------------------------------
@@ -304,8 +295,7 @@ def listar_pacientes() -> str:
     primeiro para descobrir quais pacientes existem antes de consultar
     dados específicos.
     """
-    _load_store()
-    patients = _store.list_patients()
+    patients = aegis.fhir.get_store().list_patients()
     if not patients:
         return "Nenhum paciente encontrado."
 
@@ -320,8 +310,7 @@ def consultar_paciente(patient_id: str) -> str:
     Inclui nome completo, sexo, data de nascimento, idade e endereço.
     Use o ID obtido pela ferramenta listar_pacientes.
     """
-    _load_store()
-    patient = _store.get_patient(patient_id)
+    patient = aegis.fhir.get_store().get_patient(patient_id)
     if patient is None:
         return f"Paciente não encontrado: {patient_id}"
     return _format_patient(patient)
@@ -334,8 +323,7 @@ def consultar_condicoes(patient_id: str) -> str:
     Lista todas as condições registradas com status clínico e data de início.
     Exemplos: hipertensão, diabetes, insuficiência cardíaca.
     """
-    _load_store()
-    conditions = _store.get_conditions(patient_id)
+    conditions = aegis.fhir.get_store().get_conditions(patient_id)
     if not conditions:
         return f"Nenhuma condição registrada para o paciente {patient_id}."
 
@@ -350,8 +338,7 @@ def consultar_medicamentos(patient_id: str) -> str:
     Lista todos os medicamentos com posologia e status da prescrição.
     Útil para verificar o tratamento atual e possíveis interações.
     """
-    _load_store()
-    medications = _store.get_medications(patient_id)
+    medications = aegis.fhir.get_store().get_medications(patient_id)
     if not medications:
         return f"Nenhum medicamento registrado para o paciente {patient_id}."
 
@@ -366,8 +353,7 @@ def consultar_sinais_vitais(patient_id: str) -> str:
     Inclui pressão arterial, frequência cardíaca, peso, altura e outros
     sinais vitais disponíveis com seus valores e unidades.
     """
-    _load_store()
-    observations = _store.get_observations(patient_id)
+    observations = aegis.fhir.get_store().get_observations(patient_id)
     if not observations:
         return f"Nenhum sinal vital registrado para o paciente {patient_id}."
 
@@ -382,8 +368,7 @@ def consultar_procedimentos(patient_id: str) -> str:
     Lista exames e procedimentos médicos como ecocardiograma,
     eletrocardiograma, cateterismo, cirurgias, etc.
     """
-    _load_store()
-    procedures = _store.get_procedures(patient_id)
+    procedures = aegis.fhir.get_store().get_procedures(patient_id)
     if not procedures:
         return f"Nenhum procedimento registrado para o paciente {patient_id}."
 
@@ -398,8 +383,7 @@ def consultar_exames(patient_id: str) -> str:
     Inclui resultados de exames laboratoriais (hemograma, HbA1c, perfil
     lipídico, função renal) e exames de imagem com suas conclusões.
     """
-    _load_store()
-    reports = _store.get_diagnostic_reports(patient_id)
+    reports = aegis.fhir.get_store().get_diagnostic_reports(patient_id)
     if not reports:
         return f"Nenhum exame registrado para o paciente {patient_id}."
 
@@ -414,8 +398,7 @@ def consultar_encontros(patient_id: str) -> str:
     Lista encontros clínicos com tipo (ambulatorial, internação, emergência),
     datas e motivos. Útil para entender o histórico de atendimentos.
     """
-    _load_store()
-    encounters = _store.get_encounters(patient_id)
+    encounters = aegis.fhir.get_store().get_encounters(patient_id)
     if not encounters:
         return f"Nenhum encontro registrado para o paciente {patient_id}."
 
@@ -430,8 +413,7 @@ def consultar_imunizacoes(patient_id: str) -> str:
     Lista imunizações com nome da vacina, status e data de aplicação.
     Útil para verificar o calendário vacinal e imunizações pendentes.
     """
-    _load_store()
-    immunizations = _store.get_immunizations(patient_id)
+    immunizations = aegis.fhir.get_store().get_immunizations(patient_id)
     if not immunizations:
         return f"Nenhuma imunização registrada para o paciente {patient_id}."
 
@@ -447,8 +429,7 @@ def consultar_alergias(patient_id: str) -> str:
     clínico e nível de criticidade. Informação crítica para segurança
     na prescrição de medicamentos.
     """
-    _load_store()
-    allergies = _store.get_allergy_intolerances(patient_id)
+    allergies = aegis.fhir.get_store().get_allergy_intolerances(patient_id)
     if not allergies:
         return f"Nenhuma alergia registrada para o paciente {patient_id}."
 

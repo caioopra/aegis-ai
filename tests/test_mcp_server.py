@@ -45,13 +45,8 @@ def loaded_store() -> FHIRStore:
 
 
 def _patch_store(store: FHIRStore):
-    """Return a patch that replaces the module-level _store."""
-    return patch("aegis.mcp_server._store", store)
-
-
-def _patch_load():
-    """Return a patch that disables _load_store (data already loaded)."""
-    return patch("aegis.mcp_server._load_store")
+    """Return a patch that makes get_store() return the given store."""
+    return patch("aegis.fhir.get_store", return_value=store)
 
 
 # ------------------------------------------------------------------
@@ -171,18 +166,18 @@ class TestListarPacientes:
     """Verify the listar_pacientes tool."""
 
     def test_lists_sample_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = listar_pacientes()
         assert "João Carlos Silva" in result
         assert PATIENT_ID in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = listar_pacientes()
         assert "1)" in result
 
     def test_empty_store(self):
-        with _patch_store(FHIRStore()), _patch_load():
+        with _patch_store(FHIRStore()):
             result = listar_pacientes()
         assert "Nenhum paciente" in result
 
@@ -196,14 +191,14 @@ class TestConsultarPaciente:
     """Verify the consultar_paciente tool."""
 
     def test_returns_demographics(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_paciente(PATIENT_ID)
         assert "João Carlos Silva" in result
         assert "Masculino" in result
         assert "1960-03-15" in result
 
     def test_not_found(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_paciente("nonexistent")
         assert "não encontrado" in result
 
@@ -217,19 +212,19 @@ class TestConsultarCondicoes:
     """Verify the consultar_condicoes tool."""
 
     def test_lists_conditions(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_condicoes(PATIENT_ID)
         assert "Hipertensão arterial sistêmica" in result
         assert "Diabetes mellitus tipo 2" in result
         assert "Insuficiência cardíaca congestiva" in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_condicoes(PATIENT_ID)
         assert "3)" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_condicoes("nonexistent")
         assert "Nenhuma condição" in result
 
@@ -243,19 +238,19 @@ class TestConsultarMedicamentos:
     """Verify the consultar_medicamentos tool."""
 
     def test_lists_medications(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_medicamentos(PATIENT_ID)
         assert "Losartana 50mg" in result
         assert "Hidroclorotiazida 25mg" in result
         assert "Metformina 850mg" in result
 
     def test_includes_dosage(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_medicamentos(PATIENT_ID)
         assert "comprimido" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_medicamentos("nonexistent")
         assert "Nenhum medicamento" in result
 
@@ -269,7 +264,7 @@ class TestConsultarSinaisVitais:
     """Verify the consultar_sinais_vitais tool."""
 
     def test_lists_vitals(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_sinais_vitais(PATIENT_ID)
         assert "Pressão arterial" in result
         assert "Frequência cardíaca" in result
@@ -277,20 +272,20 @@ class TestConsultarSinaisVitais:
         assert "Altura" in result
 
     def test_bp_has_components(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_sinais_vitais(PATIENT_ID)
         assert "150" in result
         assert "95" in result
 
     def test_simple_vitals_have_values(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_sinais_vitais(PATIENT_ID)
         assert "88" in result  # HR
         assert "92" in result  # Weight
         assert "172" in result  # Height
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_sinais_vitais("nonexistent")
         assert "Nenhum sinal vital" in result
 
@@ -495,18 +490,18 @@ class TestConsultarProcedimentos:
     """Verify the consultar_procedimentos tool."""
 
     def test_lists_procedures(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_procedimentos(PATIENT_ID)
         assert "Ecocardiograma transtorácico" in result
         assert "Eletrocardiograma" in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_procedimentos(PATIENT_ID)
         assert "2)" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_procedimentos("nonexistent")
         assert "Nenhum procedimento" in result
 
@@ -520,23 +515,23 @@ class TestConsultarExames:
     """Verify the consultar_exames tool."""
 
     def test_lists_reports(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_exames(PATIENT_ID)
         assert "Hemograma completo" in result
         assert "Hemoglobina glicada" in result
 
     def test_includes_conclusion(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_exames(PATIENT_ID)
         assert "HbA1c: 7.8%" in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_exames(PATIENT_ID)
         assert "2)" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_exames("nonexistent")
         assert "Nenhum exame" in result
 
@@ -550,23 +545,23 @@ class TestConsultarEncontros:
     """Verify the consultar_encontros tool."""
 
     def test_lists_encounters(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_encontros(PATIENT_ID)
         assert "Consulta de rotina" in result
         assert "Internação hospitalar" in result
 
     def test_includes_reason(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_encontros(PATIENT_ID)
         assert "Acompanhamento de hipertensão e diabetes" in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_encontros(PATIENT_ID)
         assert "2)" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_encontros("nonexistent")
         assert "Nenhum encontro" in result
 
@@ -580,18 +575,18 @@ class TestConsultarImunizacoes:
     """Verify the consultar_imunizacoes tool."""
 
     def test_lists_immunizations(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_imunizacoes(PATIENT_ID)
         assert "COVID-19 (Coronavac)" in result
         assert "Influenza sazonal" in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_imunizacoes(PATIENT_ID)
         assert "2)" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_imunizacoes("nonexistent")
         assert "Nenhuma imunização" in result
 
@@ -644,22 +639,22 @@ class TestConsultarAlergias:
     """Verify the consultar_alergias tool."""
 
     def test_lists_allergies(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_alergias(PATIENT_ID)
         assert "Penicilina" in result
         assert "Lactose" in result
 
     def test_shows_count(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_alergias(PATIENT_ID)
         assert "2)" in result
 
     def test_shows_criticality(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_alergias(PATIENT_ID)
         assert "high" in result
 
     def test_empty_for_unknown_patient(self, loaded_store: FHIRStore):
-        with _patch_store(loaded_store), _patch_load():
+        with _patch_store(loaded_store):
             result = consultar_alergias("nonexistent")
         assert "Nenhuma alergia" in result

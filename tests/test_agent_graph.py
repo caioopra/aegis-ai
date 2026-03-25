@@ -163,10 +163,7 @@ class TestGraphExecution:
                 "aegis.agent.nodes.llm_evaluate_report",
                 return_value={"overall": {"score": 4, "feedback": "OK"}},
             ),
-            patch("aegis.agent.nodes._store", loaded_store),
-            patch("aegis.agent.nodes._ensure_store"),
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
         ):
             graph = build_graph()
             result = graph.invoke({"patient_note": "Paciente João, 65a, dispneia"})
@@ -200,10 +197,7 @@ class TestGraphExecution:
                 "aegis.agent.nodes.llm_evaluate_report",
                 return_value={"overall": {"score": 3, "feedback": "OK"}},
             ),
-            patch("aegis.agent.nodes._store", loaded_store),
-            patch("aegis.agent.nodes._ensure_store"),
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
         ):
             graph = build_graph()
             result = graph.invoke({"patient_note": "Retorno de rotina, sem queixas"})
@@ -238,10 +232,7 @@ class TestGraphExecution:
             ),
             patch("aegis.agent.nodes.llm_generate_report", side_effect=mock_generate),
             patch("aegis.agent.nodes.llm_evaluate_report", side_effect=mock_evaluate),
-            patch("aegis.agent.nodes._store", loaded_store),
-            patch("aegis.agent.nodes._ensure_store"),
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
         ):
             graph = build_graph()
             result = graph.invoke({"patient_note": "Paciente João, 65a, HAS"})
@@ -272,10 +263,7 @@ class TestGraphExecution:
                 "aegis.agent.nodes.llm_evaluate_report",
                 return_value={"overall": {"score": 1, "feedback": "always bad"}},
             ),
-            patch("aegis.agent.nodes._store", loaded_store),
-            patch("aegis.agent.nodes._ensure_store"),
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
         ):
             graph = build_graph()
             result = graph.invoke({"patient_note": "Paciente João, 65a, HAS"})
@@ -315,10 +303,7 @@ class TestGraphExecution:
                 "aegis.agent.nodes.llm_evaluate_report",
                 return_value={"overall": {"score": 4, "feedback": "OK"}},
             ),
-            patch("aegis.agent.nodes._store", loaded_store),
-            patch("aegis.agent.nodes._ensure_store"),
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
         ):
             graph = build_graph()
             result = graph.invoke(
@@ -351,10 +336,7 @@ class TestGraphWithErrors:
                 "aegis.agent.nodes.llm_evaluate_report",
                 return_value={"overall": {"score": 3, "feedback": "OK"}},
             ),
-            patch("aegis.agent.nodes._store", loaded_store),
-            patch("aegis.agent.nodes._ensure_store"),
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
         ):
             graph = build_graph()
             result = graph.invoke({"patient_note": "Paciente com dor torácica"})

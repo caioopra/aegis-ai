@@ -11,7 +11,7 @@ from itertools import combinations
 from typing import Any
 
 from aegis.agent.state import AgentState
-from aegis.fhir import FHIRStore
+import aegis.fhir
 from aegis.llm import (
     decide_retrieval as llm_decide_retrieval,
     evaluate_report as llm_evaluate_report,
@@ -33,9 +33,6 @@ from aegis.mcp_server import (
 from aegis.rag.retriever import format_context, retrieve
 
 logger = logging.getLogger(__name__)
-
-# Module-level store for patient ID matching
-_store = FHIRStore()
 
 # ------------------------------------------------------------------
 # Dynamic tool selection mappings
@@ -153,12 +150,6 @@ def _extract_medication_names(entities: list[dict[str, str]]) -> list[str]:
     return names
 
 
-def _ensure_store() -> None:
-    """Load FHIR data into the module-level store if empty."""
-    if not _store.list_patients():
-        _store.load_directory()
-
-
 def _match_patient_id(
     entities: list[dict[str, str]],
     note: str = "",
@@ -168,8 +159,7 @@ def _match_patient_id(
     Returns ``(patient_id, match_type)`` where match_type is one of:
     ``"exact"``, ``"partial"``, ``"fallback"``, or ``"none"``.
     """
-    _ensure_store()
-    patients = _store.list_patients()
+    patients = aegis.fhir.get_store().list_patients()
     if not patients:
         return "", "none"
 

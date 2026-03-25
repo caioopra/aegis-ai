@@ -32,11 +32,7 @@ def loaded_store() -> FHIRStore:
 
 
 def _patch_store(store: FHIRStore):
-    return patch("aegis.agent.nodes._store", store)
-
-
-def _patch_ensure():
-    return patch("aegis.agent.nodes._ensure_store")
+    return patch("aegis.fhir.get_store", return_value=store)
 
 
 # ------------------------------------------------------------------
@@ -57,7 +53,6 @@ class TestParseNote:
         with (
             patch("aegis.agent.nodes.extract_entities", return_value=mock_result),
             _patch_store(loaded_store),
-            _patch_ensure(),
         ):
             state = {"patient_note": "Paciente João, 65a, dispneia"}
             result = parse_note(state)
@@ -71,7 +66,6 @@ class TestParseNote:
         with (
             patch("aegis.agent.nodes.extract_entities", return_value=mock_result),
             _patch_store(FHIRStore()),
-            _patch_ensure(),
         ):
             state = {"patient_note": "Paciente com dor"}
             result = parse_note(state)
@@ -86,7 +80,6 @@ class TestParseNote:
         with (
             patch("aegis.agent.nodes.extract_entities", return_value=mock_result),
             _patch_store(loaded_store),
-            _patch_ensure(),
         ):
             state = {"patient_note": "Paciente Maria"}
             result = parse_note(state)
@@ -98,7 +91,6 @@ class TestParseNote:
         with (
             patch("aegis.agent.nodes.extract_entities", side_effect=ValueError("LLM down")),
             _patch_store(loaded_store),
-            _patch_ensure(),
         ):
             state = {"patient_note": "Paciente João"}
             result = parse_note(state)
@@ -113,7 +105,6 @@ class TestParseNote:
         with (
             patch("aegis.agent.nodes.extract_entities", return_value=mock_result),
             _patch_store(loaded_store),
-            _patch_ensure(),
         ):
             state = {"patient_note": "Paciente com dor"}
             result = parse_note(state)
@@ -131,7 +122,6 @@ class TestParseNote:
         with (
             patch("aegis.agent.nodes.extract_entities", return_value=mock_result),
             _patch_store(loaded_store),
-            _patch_ensure(),
         ):
             state = {"patient_note": "Paciente João, 65a, com HAS descompensada"}
             result = parse_note(state)
@@ -151,7 +141,7 @@ class TestMatchPatientId:
 
     def test_matches_by_name_in_entities(self, loaded_store: FHIRStore):
         entities = [{"text": "João", "type": "patient", "normalized": "João Silva"}]
-        with _patch_store(loaded_store), _patch_ensure():
+        with _patch_store(loaded_store):
             patient_id, match_type = _match_patient_id(entities)
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
@@ -159,21 +149,21 @@ class TestMatchPatientId:
     def test_matches_by_name_in_note(self, loaded_store: FHIRStore):
         """Name in the note text (not in entities) should still match."""
         entities = [{"text": "HAS", "type": "condition", "normalized": "hipertensão"}]
-        with _patch_store(loaded_store), _patch_ensure():
+        with _patch_store(loaded_store):
             patient_id, match_type = _match_patient_id(entities, note="Paciente João, 65a, HAS")
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
 
     def test_matches_first_name_only_from_note(self, loaded_store: FHIRStore):
         """Just 'João' in the note should match (partial)."""
-        with _patch_store(loaded_store), _patch_ensure():
+        with _patch_store(loaded_store):
             patient_id, match_type = _match_patient_id([], note="Paciente João com queixas")
         assert patient_id == PATIENT_ID
         assert match_type in ("exact", "partial")
 
     def test_fallback_to_first_patient(self, loaded_store: FHIRStore):
         entities = [{"text": "Maria", "type": "patient", "normalized": "Maria Santos"}]
-        with _patch_store(loaded_store), _patch_ensure():
+        with _patch_store(loaded_store):
             patient_id, match_type = _match_patient_id(entities, note="Paciente Maria")
         # No match for Maria, falls back to first available
         assert patient_id == PATIENT_ID
@@ -181,14 +171,14 @@ class TestMatchPatientId:
 
     def test_returns_none_when_no_patients(self):
         entities = [{"text": "João", "type": "patient", "normalized": "João"}]
-        with _patch_store(FHIRStore()), _patch_ensure():
+        with _patch_store(FHIRStore()):
             patient_id, match_type = _match_patient_id(entities)
         assert patient_id == ""
         assert match_type == "none"
 
     def test_matches_full_name_from_note(self, loaded_store: FHIRStore):
         """Full name 'João Carlos Silva' in the note should be exact match."""
-        with _patch_store(loaded_store), _patch_ensure():
+        with _patch_store(loaded_store):
             patient_id, match_type = _match_patient_id(
                 [], note="Paciente João Carlos Silva, 65 anos"
             )
@@ -427,8 +417,7 @@ class TestFetchPatientData:
 
     def test_fetches_all_base_sections(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
         ):
             state = {"patient_id": PATIENT_ID}
             result = fetch_patient_data(state)
@@ -450,8 +439,7 @@ class TestFetchPatientData:
 
     def test_recovers_from_partial_tool_failure(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
             patch(
                 "aegis.agent.nodes.consultar_sinais_vitais",
                 side_effect=Exception("Timeout"),
@@ -469,8 +457,7 @@ class TestFetchPatientData:
 
     def test_calls_dynamic_tools_for_procedure_entities(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
         ):
             state = {
                 "patient_id": PATIENT_ID,
@@ -485,8 +472,7 @@ class TestFetchPatientData:
 
     def test_calls_dynamic_tools_for_exam_entities(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
         ):
             state = {
                 "patient_id": PATIENT_ID,
@@ -501,8 +487,7 @@ class TestFetchPatientData:
 
     def test_calls_allergy_tool_when_triggered(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
         ):
             state = {
                 "patient_id": PATIENT_ID,
@@ -517,8 +502,7 @@ class TestFetchPatientData:
 
     def test_checks_medication_interactions(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
         ):
             state = {
                 "patient_id": PATIENT_ID,
@@ -540,8 +524,7 @@ class TestFetchPatientData:
 
     def test_no_dynamic_tools_for_simple_note(self, loaded_store: FHIRStore):
         with (
-            patch("aegis.mcp_server._store", loaded_store),
-            patch("aegis.mcp_server._load_store"),
+            _patch_store(loaded_store),
         ):
             state = {
                 "patient_id": PATIENT_ID,
