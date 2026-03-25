@@ -1,4 +1,4 @@
-"""Ollama client wrapper with prompt templates for clinical tasks."""
+"""LLM client wrapper with prompt templates for clinical tasks."""
 
 from __future__ import annotations
 
@@ -7,9 +7,8 @@ import logging
 import time
 from typing import Any
 
-import ollama
-
-from aegis.config import settings
+from aegis.providers import get_chat_provider
+from aegis.providers.base import ChatProvider
 
 logger = logging.getLogger(__name__)
 
@@ -151,18 +150,24 @@ Respond ONLY with valid JSON, no extra text.
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds
 
+_chat_provider: ChatProvider | None = None
+
+
+def _get_chat() -> ChatProvider:
+    """Return the chat provider singleton, creating it on first call."""
+    global _chat_provider
+    if _chat_provider is None:
+        _chat_provider = get_chat_provider()
+    return _chat_provider
+
 
 def generate(prompt: str, system_prompt: str = SYSTEM_MEDICAL) -> str:
-    """Send a prompt to Ollama and return the raw text response."""
-    response = ollama.chat(
-        model=settings.ollama_model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
-        ],
-        options={"temperature": 0.3},
+    """Send a prompt to the LLM and return the raw text response."""
+    return _get_chat().chat(
+        messages=[{"role": "user", "content": prompt}],
+        system_prompt=system_prompt,
+        temperature=0.3,
     )
-    return response["message"]["content"]
 
 
 def generate_json(
@@ -172,7 +177,7 @@ def generate_json(
 ) -> dict[str, Any]:
     """Send a prompt and parse the response as JSON.
 
-    Tries Ollama's native JSON format first; falls back to extracting
+    Tries native JSON format first; falls back to extracting
     a JSON block from the text response. Retries on transient failures
     with exponential backoff.
     """
@@ -180,16 +185,13 @@ def generate_json(
 
     for attempt in range(max_retries):
         try:
-            response = ollama.chat(
-                model=settings.ollama_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
-                format="json",
-                options={"temperature": 0.2},
+            raw = _get_chat().chat(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt=system_prompt,
+                temperature=0.2,
+                json_mode=True,
             )
-            return json.loads(response["message"]["content"])
+            return json.loads(raw)
         except (json.JSONDecodeError, KeyError) as exc:
             last_error = exc
             logger.warning(
@@ -212,7 +214,7 @@ def generate_json(
             logger.info("Retrying in %.1fs...", delay)
             time.sleep(delay)
 
-    # Final fallback: try without format=json and extract manually
+    # Final fallback: try without json_mode and extract manually
     try:
         raw = generate(prompt, system_prompt)
         return _extract_json(raw)

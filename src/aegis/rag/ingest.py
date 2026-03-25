@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import ollama
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -17,6 +16,8 @@ from qdrant_client.models import (
 )
 
 from aegis.config import settings
+from aegis.providers import get_embed_provider
+from aegis.providers.base import EmbedProvider
 from aegis.rag.sparse import BM25Vectorizer
 
 # ---------------------------------------------------------------------------
@@ -108,14 +109,28 @@ def chunk_documents(
 
 
 # ---------------------------------------------------------------------------
-# Embedding
+# Embedding provider (lazy singleton)
 # ---------------------------------------------------------------------------
+
+_embedder: EmbedProvider | None = None
+
+
+def _get_embedder() -> EmbedProvider:
+    """Return the embedding provider singleton, creating it on first call."""
+    global _embedder
+    if _embedder is None:
+        _embedder = get_embed_provider()
+    return _embedder
+
+
+def get_embedding_dim() -> int:
+    """Return the embedding dimension from the configured provider."""
+    return _get_embedder().embedding_dim
 
 
 def embed_text(text: str) -> list[float]:
-    """Generate an embedding vector for a single text using Ollama."""
-    response = ollama.embed(model=settings.ollama_embed_model, input=text)
-    return response["embeddings"][0]
+    """Generate an embedding vector for a single text."""
+    return _get_embedder().embed(text)
 
 
 def embed_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -129,8 +144,6 @@ def embed_chunks(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # Qdrant storage
 # ---------------------------------------------------------------------------
 
-EMBEDDING_DIM = 768  # nomic-embed-text output dimension
-
 
 def get_qdrant_client() -> QdrantClient:
     """Create a Qdrant client from settings."""
@@ -142,10 +155,12 @@ def get_qdrant_client() -> QdrantClient:
 def ensure_collection(
     client: QdrantClient,
     collection: str | None = None,
-    vector_size: int = EMBEDDING_DIM,
+    vector_size: int | None = None,
 ) -> None:
     """Create the Qdrant collection with dense + sparse vectors if it doesn't exist."""
     collection = collection or settings.qdrant_collection
+    if vector_size is None:
+        vector_size = get_embedding_dim()
     if not client.collection_exists(collection):
         client.create_collection(
             collection_name=collection,
