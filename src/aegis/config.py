@@ -8,10 +8,14 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Central configuration — values come from .env or environment variables."""
 
+    # LLM provider
+    llm_provider: str = "ollama"
+
     # Ollama
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "mistral"
     ollama_embed_model: str = "nomic-embed-text"
+    embedding_dim: int = 768
 
     # Qdrant
     qdrant_url: str = "http://localhost:6333"
