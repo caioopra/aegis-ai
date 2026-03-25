@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -86,10 +87,9 @@ def tokenize(text: str) -> list[str]:
 
 
 def _term_hash(term: str, vocab_size: int = VOCAB_SIZE) -> int:
-    """Map a term to an integer index via hashing."""
-    # Simple hash that avoids importing hashlib for speed
-    h = hash(term) % vocab_size
-    return h if h >= 0 else h + vocab_size
+    """Deterministic hash of a term to a sparse vector index."""
+    h = hashlib.md5(term.encode("utf-8")).hexdigest()
+    return int(h, 16) % vocab_size
 
 
 class BM25Vectorizer:

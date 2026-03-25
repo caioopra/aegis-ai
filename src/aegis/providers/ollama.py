@@ -13,6 +13,7 @@ class OllamaChatProvider:
     def __init__(self, model: str = "mistral", base_url: str = "http://localhost:11434") -> None:
         self.model = model
         self.base_url = base_url
+        self._client = _ollama.Client(host=base_url)
 
     def chat(
         self,
@@ -34,7 +35,7 @@ class OllamaChatProvider:
         if json_mode:
             kwargs["format"] = "json"
 
-        response = _ollama.chat(**kwargs)
+        response = self._client.chat(**kwargs)
         return response["message"]["content"]
 
 
@@ -50,11 +51,12 @@ class OllamaEmbedProvider:
         self.model = model
         self.base_url = base_url
         self._dim = dim
+        self._client = _ollama.Client(host=base_url)
 
     @property
     def embedding_dim(self) -> int:
         return self._dim
 
     def embed(self, text: str) -> list[float]:
-        response = _ollama.embed(model=self.model, input=text)
+        response = self._client.embed(model=self.model, input=text)
         return response["embeddings"][0]

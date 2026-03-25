@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -226,18 +227,38 @@ def generate_json(
 
 def _extract_json(text: str) -> dict[str, Any]:
     """Best-effort extraction of a JSON object from LLM output."""
-    # Try to find JSON between ```json ... ``` or { ... }
-    import re
-
     # Try fenced code block first
     match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if match:
         return json.loads(match.group(1))
 
-    # Try raw JSON object
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        return json.loads(match.group(0))
+    # Find first balanced JSON object using brace counting
+    start = text.find("{")
+    if start == -1:
+        raise ValueError(f"Could not extract JSON from LLM response: {text[:200]}")
+
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i in range(start, len(text)):
+        c = text[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if c == "\\":
+            escape_next = True
+            continue
+        if c == '"' and not escape_next:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return json.loads(text[start : i + 1])
 
     raise ValueError(f"Could not extract JSON from LLM response: {text[:200]}")
 

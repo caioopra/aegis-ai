@@ -146,6 +146,11 @@ class TestExtractJson:
         assert "expanded_note" in result
         assert len(result["entities"]) == 1
 
+    def test_extracts_first_json_from_multiple(self):
+        text = 'Result: {"a": 1} And also {"b": 2}'
+        result = _extract_json(text)
+        assert result == {"a": 1}
+
 
 # ── generate() mocked tests ─────────────────────────────────────────────
 

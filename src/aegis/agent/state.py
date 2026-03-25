@@ -36,7 +36,7 @@ class AgentState(TypedDict, total=False):
     # After fetch_patient_data
     patient_data: str
     # Tools used in fetch_patient_data
-    tools_called: list[str]
+    tools_called: Annotated[list[str], operator.add]
 
     # After generate_report
     report: dict[str, Any]
