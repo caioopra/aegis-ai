@@ -6,13 +6,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aegis.llm import (
-    EXPAND_NOTE_PROMPT,
     ENTITY_EXTRACTION_PROMPT,
     EVALUATE_REPORT_PROMPT,
+    EXPAND_NOTE_PROMPT,
     MAX_INPUT_TOKENS,
     REPORT_PROMPT,
     SELF_RAG_DECISION_PROMPT,
+    SYSTEM_ENTITY_EXTRACTION,
     SYSTEM_MEDICAL,
+    SYSTEM_RAG_DECISION,
+    SYSTEM_REPORT_EVALUATION,
+    SYSTEM_REPORT_GENERATION,
+    TEMP_EVALUATION,
+    TEMP_EXTRACTION,
+    TEMP_RAG_DECISION,
+    TEMP_REPORT,
     _extract_json,
     decide_retrieval,
     estimate_tokens,
@@ -69,6 +77,28 @@ class TestPromptTemplates:
 
     def test_system_medical_is_nonempty(self):
         assert len(SYSTEM_MEDICAL) > 50
+
+    def test_task_specific_system_prompts_in_pt_br(self):
+        # All four task-specific prompts must be substantial pt-BR strings.
+        for prompt in (
+            SYSTEM_ENTITY_EXTRACTION,
+            SYSTEM_RAG_DECISION,
+            SYSTEM_REPORT_GENERATION,
+            SYSTEM_REPORT_EVALUATION,
+        ):
+            assert len(prompt) > 50
+            # pt-BR sanity check: contains "Você" or accented chars
+            assert "Você" in prompt or "ê" in prompt or "á" in prompt
+
+    def test_all_prompts_pt_br(self):
+        # Each user-facing prompt template must contain pt-BR markers.
+        assert "Nota" in EXPAND_NOTE_PROMPT
+        assert "Retorne" in EXPAND_NOTE_PROMPT
+        assert "Extraia" in ENTITY_EXTRACTION_PROMPT
+        assert "Dados do Paciente" in REPORT_PROMPT
+        assert "Diretrizes Relevantes" in REPORT_PROMPT
+        assert "Nota Clínica" in SELF_RAG_DECISION_PROMPT
+        assert "Avalie" in EVALUATE_REPORT_PROMPT
 
     def test_expand_note_prompt_formats_correctly(self, sample_note):
         rendered = EXPAND_NOTE_PROMPT.format(note=sample_note)
@@ -223,6 +253,24 @@ class TestGenerateJsonMocked:
         call_args = mock_provider.chat.call_args
         assert call_args.kwargs["json_mode"] is True
 
+    @patch("aegis.llm._get_chat")
+    def test_forwards_temperature_to_chat(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = '{"ok": true}'
+        mock_get_chat.return_value = mock_provider
+        generate_json("Test", temperature=0.05)
+        call_args = mock_provider.chat.call_args
+        assert call_args.kwargs["temperature"] == 0.05
+
+    @patch("aegis.llm._get_chat")
+    def test_forwards_system_prompt_to_chat(self, mock_get_chat):
+        mock_provider = MagicMock()
+        mock_provider.chat.return_value = '{"ok": true}'
+        mock_get_chat.return_value = mock_provider
+        generate_json("Test", system_prompt="Custom system")
+        call_args = mock_provider.chat.call_args
+        assert call_args.kwargs["system_prompt"] == "Custom system"
+
     @patch("aegis.llm.time.sleep")
     @patch("aegis.llm._get_chat")
     def test_retries_on_json_decode_error(self, mock_get_chat, mock_sleep):
@@ -323,7 +371,7 @@ class TestHighLevelFunctionsMocked:
         mock_gen.return_value = {}
         generate_report(sample_note)
         prompt_arg = mock_gen.call_args[0][0]
-        assert "Not available" in prompt_arg
+        assert "Não disponível" in prompt_arg
 
     @patch("aegis.llm.generate_json")
     def test_generate_report_with_refinement_context(self, mock_gen, sample_note):
@@ -360,6 +408,48 @@ class TestHighLevelFunctionsMocked:
         evaluate_report({"findings": []})
         prompt_arg = mock_gen.call_args[0][0]
         assert "Não disponível" in prompt_arg
+
+    # ── Task-specific system prompt + temperature wiring ──────────────────
+
+    @patch("aegis.llm.generate_json")
+    def test_extract_entities_uses_extraction_system_prompt(self, mock_gen, sample_note):
+        mock_gen.return_value = {"entities": []}
+        extract_entities(sample_note)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["system_prompt"] == SYSTEM_ENTITY_EXTRACTION
+        assert kwargs["temperature"] == TEMP_EXTRACTION
+
+    @patch("aegis.llm.generate_json")
+    def test_expand_note_uses_extraction_system_prompt(self, mock_gen, sample_note):
+        mock_gen.return_value = {"expanded_note": "...", "entities": []}
+        expand_note(sample_note)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["system_prompt"] == SYSTEM_ENTITY_EXTRACTION
+        assert kwargs["temperature"] == TEMP_EXTRACTION
+
+    @patch("aegis.llm.generate_json")
+    def test_decide_retrieval_uses_rag_system_prompt(self, mock_gen, sample_note):
+        mock_gen.return_value = {"needs_retrieval": False, "queries": []}
+        decide_retrieval(sample_note, [])
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["system_prompt"] == SYSTEM_RAG_DECISION
+        assert kwargs["temperature"] == TEMP_RAG_DECISION
+
+    @patch("aegis.llm.generate_json")
+    def test_generate_report_uses_report_system_prompt(self, mock_gen, sample_note):
+        mock_gen.return_value = {}
+        generate_report(sample_note)
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["system_prompt"] == SYSTEM_REPORT_GENERATION
+        assert kwargs["temperature"] == TEMP_REPORT
+
+    @patch("aegis.llm.generate_json")
+    def test_evaluate_report_uses_evaluation_system_prompt(self, mock_gen):
+        mock_gen.return_value = {"overall": {"score": 4, "feedback": "ok"}}
+        evaluate_report({"findings": []})
+        kwargs = mock_gen.call_args.kwargs
+        assert kwargs["system_prompt"] == SYSTEM_REPORT_EVALUATION
+        assert kwargs["temperature"] == TEMP_EVALUATION
 
 
 # ── Token estimation tests ───────────────────────────────────────────────

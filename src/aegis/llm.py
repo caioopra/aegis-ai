@@ -17,70 +17,113 @@ logger = logging.getLogger(__name__)
 # Prompt templates
 # ---------------------------------------------------------------------------
 
+# -- Legacy alias kept for backward compatibility in tests ----------------
 SYSTEM_MEDICAL = (
-    "You are a clinical assistant AI. You help physicians by expanding "
-    "medical abbreviations, extracting structured data from clinical notes, "
-    "and generating medical reports. Always respond in the same language as "
-    "the input note. Be precise and use standard medical terminology."
+    "Você é um assistente clínico de IA. Ajude médicos a expandir "
+    "abreviações médicas, extrair dados estruturados de notas clínicas "
+    "e gerar relatórios médicos. Seja preciso e use terminologia médica padrão. "
+    "Responda sempre em português."
+)
+
+# -- Task-specific system prompts ----------------------------------------
+
+SYSTEM_ENTITY_EXTRACTION = (
+    "Você é um especialista em terminologia médica. Sua tarefa é identificar "
+    "e normalizar todas as entidades clínicas em notas médicas brasileiras. "
+    "Expanda abreviações, normalize termos e classifique cada entidade. "
+    "Responda apenas com JSON válido."
+)
+
+SYSTEM_RAG_DECISION = (
+    "Você é um assistente clínico que avalia se diretrizes clínicas devem ser "
+    "consultadas para elaborar o relatório médico. Analise a nota e as entidades "
+    "extraídas para tomar essa decisão. Responda apenas com JSON válido."
+)
+
+SYSTEM_REPORT_GENERATION = (
+    "Você é um assistente clínico de IA especializado em gerar relatórios "
+    "médicos estruturados para médicos brasileiros. Use terminologia médica "
+    "padrão, referencie diretrizes quando aplicável e nunca invente dados "
+    "não presentes nas fontes. Responda apenas com JSON válido."
+)
+
+SYSTEM_REPORT_EVALUATION = (
+    "Você é um avaliador de qualidade de relatórios médicos. Analise o "
+    "relatório comparando-o com a nota clínica original e os dados do "
+    "paciente. Seja objetivo e específico no feedback. "
+    "Responda apenas com JSON válido."
 )
 
 EXPAND_NOTE_PROMPT = """\
-Expand the following doctor's shorthand note into a clear, complete clinical \
-note. Expand all abbreviations, normalize vital signs, and list findings explicitly.
+Expanda a seguinte nota médica abreviada em uma nota clínica clara e completa. \
+Expanda todas as abreviações, normalize sinais vitais e liste os achados explicitamente.
 
-Doctor's note:
+Nota do médico:
 {note}
 
-Return a JSON object with these fields:
-- "expanded_note": the full expanded clinical note
-- "entities": a list of extracted medical entities, each with "text", "type" \
-(one of: symptom, sign, medication, condition, vital_sign, procedure), and "original" \
-(the abbreviation or shorthand used)
+Retorne um objeto JSON com estes campos:
+- "expanded_note": a nota clínica completa expandida
+- "entities": lista de entidades médicas extraídas, cada uma com "text", "type" \
+(um de: symptom, sign, medication, condition, vital_sign, procedure) e "original" \
+(a abreviação ou forma abreviada usada)
 
-Respond ONLY with valid JSON, no extra text.
+Responda APENAS com JSON válido, sem texto adicional.
 """
 
 REPORT_PROMPT = """\
-Generate a structured medical report based on the following information.
+Gere um relatório médico estruturado com base nas seguintes informações.
 
-## Patient Data
+## Dados do Paciente
 {patient_data}
 
-## Clinical Note
+## Nota Clínica
 {note}
 
-## Relevant Guidelines
+## Diretrizes Relevantes
 {guidelines}
 
 {refinement_context}
 
-Return a JSON object with these sections:
-- "patient_summary": brief patient description (1-2 sentences: age, sex, key conditions)
-- "findings": list of clinical findings from the note and patient data
-- "assessment": clinical assessment and reasoning (reference guidelines when applicable)
-- "plan": recommended plan of care (specific actions, medications with doses if applicable)
-- "guideline_references": list of guideline excerpts that support the plan
+Retorne um objeto JSON com estas seções:
+- "patient_summary": descrição breve do paciente (1-2 frases: idade, sexo, condições principais)
+- "findings": lista de achados clínicos da nota e dos dados do paciente
+- "assessment": avaliação clínica e raciocínio (referencie diretrizes quando aplicável)
+- "plan": plano de cuidado recomendado (ações específicas, medicamentos com doses se aplicável)
+- "guideline_references": lista de trechos das diretrizes que fundamentam o plano
 
-If any section above has no data available (marked as "Não disponível"), note this \
-limitation explicitly in the assessment. Do not invent data that is not present.
+Se alguma seção não tiver dados disponíveis (marcada como "Não disponível"), indique \
+essa limitação explicitamente na avaliação. Não invente dados que não estejam presentes.
 
-Respond ONLY with valid JSON, no extra text.
+Responda APENAS com JSON válido, sem texto adicional.
 """
 
 ENTITY_EXTRACTION_PROMPT = """\
-Extract all medical entities from this clinical note.
+Extraia todas as entidades médicas desta nota clínica.
 
-Note:
+Nota:
 {note}
 
-Return a JSON object with a single field "entities" — a list of objects, each with:
-- "text": the entity as stated in the note
-- "type": one of symptom, sign, medication, condition, vital_sign, procedure
-- "normalized": the standard medical term (expanded, in the note's language)
+Retorne um objeto JSON com um único campo "entities" — uma lista de objetos, cada um com:
+- "text": a entidade conforme escrita na nota
+- "type": um de symptom, sign, medication, condition, vital_sign, procedure, \
+lab_result, allergy, family_history, social_history
+- "normalized": o termo médico padrão (expandido, em português)
 
-If no medical entities are found, return {{"entities": []}}.
+Use os tipos da seguinte forma:
+- "symptom": queixa subjetiva relatada pelo paciente (ex.: dispneia, cefaleia)
+- "sign": achado objetivo no exame físico (ex.: estertores, edema)
+- "medication": fármaco em uso ou prescrito (ex.: losartana 50 mg)
+- "condition": doença, diagnóstico ou comorbidade (ex.: HAS, DM2)
+- "vital_sign": sinal vital com valor (ex.: PA 150x95, FC 88)
+- "procedure": procedimento realizado ou planejado (ex.: ECG, cateterismo)
+- "lab_result": resultado de exame laboratorial (ex.: HbA1c 8.2%, creatinina 1.4)
+- "allergy": alergia ou reação adversa relatada (ex.: alergia a penicilina)
+- "family_history": antecedente familiar relevante (ex.: pai com IAM aos 55)
+- "social_history": hábito ou contexto social (ex.: tabagismo 20 maços/ano)
 
-Example for "Pct 65a HAS, PA 150x95, losartana 50mg":
+Se não houver entidades médicas, retorne {{"entities": []}}.
+
+Exemplo para "Pct 65a HAS, PA 150x95, losartana 50mg":
 {{
   "entities": [
     {{"text": "HAS", "type": "condition", "normalized": "Hipertensão arterial sistêmica"}},
@@ -89,58 +132,80 @@ Example for "Pct 65a HAS, PA 150x95, losartana 50mg":
   ]
 }}
 
-Respond ONLY with valid JSON, no extra text.
+Exemplo para "M 58a, dispneia aos esforços, estertores em bases, HbA1c 8.2, alérgico a penicilina, \
+pai faleceu de IAM aos 60, tabagista 30 maços/ano":
+{{
+  "entities": [
+    {{"text": "dispneia aos esforços", "type": "symptom", "normalized": "Dispneia aos esforços"}},
+    {{"text": "estertores em bases", "type": "sign", "normalized": "Estertores em bases pulmonares"}},
+    {{"text": "HbA1c 8.2", "type": "lab_result", "normalized": "Hemoglobina glicada 8,2%"}},
+    {{"text": "alérgico a penicilina", "type": "allergy", "normalized": "Alergia a penicilina"}},
+    {{"text": "pai faleceu de IAM aos 60", "type": "family_history", \
+"normalized": "Histórico familiar de infarto agudo do miocárdio (pai, 60 anos)"}},
+    {{"text": "tabagista 30 maços/ano", "type": "social_history", \
+"normalized": "Tabagismo 30 maços-ano"}}
+  ]
+}}
+
+Exemplo para "Paciente referido para ECG e cateterismo cardíaco":
+{{
+  "entities": [
+    {{"text": "ECG", "type": "procedure", "normalized": "Eletrocardiograma"}},
+    {{"text": "cateterismo cardíaco", "type": "procedure", "normalized": "Cateterismo cardíaco"}}
+  ]
+}}
+
+Responda APENAS com JSON válido, sem texto adicional.
 """
 
 SELF_RAG_DECISION_PROMPT = """\
-Given the following clinical note and the entities already extracted from it, \
-decide whether retrieving clinical guidelines would improve the quality of the \
-final medical report.
+Dada a seguinte nota clínica e as entidades já extraídas dela, decida se \
+consultar diretrizes clínicas melhoraria a qualidade do relatório médico final.
 
-## Clinical Note
+## Nota Clínica
 {note}
 
-## Extracted Entities
+## Entidades Extraídas
 {entities}
 
-Answer with a JSON object:
-- "needs_retrieval": true or false
-- "queries": if true, a list of 1-3 short search queries to find relevant guidelines
+Responda com um objeto JSON:
+- "needs_retrieval": true ou false
+- "queries": se true, uma lista de 1 a 3 consultas curtas para buscar diretrizes relevantes
 
-Respond ONLY with valid JSON, no extra text.
+Responda APENAS com JSON válido, sem texto adicional.
 """
 
 EVALUATE_REPORT_PROMPT = """\
-Evaluate the quality of this medical report by comparing it against the original \
-clinical note and patient data.
+Avalie a qualidade deste relatório médico comparando-o com a nota clínica \
+original e os dados do paciente.
 
-## Original Clinical Note
+## Nota Clínica Original
 {note}
 
-## Patient Data
+## Dados do Paciente
 {patient_data}
 
-## Report to Evaluate
+## Relatório a Avaliar
 {report}
 
-Score each dimension from 1-5 using this rubric:
-- 1 = Critical gaps or errors that could affect clinical decisions
-- 2 = Important information missing or inaccurate
-- 3 = Acceptable — covers main points with minor gaps
-- 4 = Good — comprehensive with only trivial omissions
-- 5 = Excellent — thorough, accurate, well-referenced
+Pontue cada dimensão de 1 a 5 usando esta rubrica:
+- 1 = Lacunas ou erros críticos que podem afetar decisões clínicas
+- 2 = Informações importantes ausentes ou imprecisas
+- 3 = Aceitável — cobre os pontos principais com lacunas menores
+- 4 = Bom — abrangente com apenas omissões triviais
+- 5 = Excelente — completo, preciso e bem referenciado
 
-Dimensions to score:
-- "completeness": are all findings from the note addressed in the report?
-- "accuracy": is the medical reasoning sound and consistent with the data?
-- "guideline_adherence": does the plan follow the clinical guidelines provided?
-- "clarity": is the report clear, well-structured, and actionable?
-- "overall": overall quality score considering all dimensions
+Dimensões a pontuar:
+- "completeness": todos os achados da nota estão contemplados no relatório?
+- "accuracy": o raciocínio médico é correto e consistente com os dados?
+- "guideline_adherence": o plano segue as diretrizes clínicas fornecidas?
+- "clarity": o relatório é claro, bem estruturado e acionável?
+- "overall": pontuação geral considerando todas as dimensões
 
-Return a JSON object with these fields, each containing "score" (int 1-5) and \
-"feedback" (string with specific observations).
+Retorne um objeto JSON com esses campos, cada um contendo "score" (int 1-5) e \
+"feedback" (string com observações específicas).
 
-Respond ONLY with valid JSON, no extra text.
+Responda APENAS com JSON válido, sem texto adicional.
 """
 
 
@@ -181,6 +246,13 @@ def truncate_to_budget(
 MAX_RETRIES = 3
 RETRY_BASE_DELAY = 1.0  # seconds
 
+# Per-task temperatures (Phase 12 Step 2): low for deterministic structured tasks,
+# slightly higher for report generation where some narrative variation is fine.
+TEMP_EXTRACTION = 0.1
+TEMP_RAG_DECISION = 0.1
+TEMP_REPORT = 0.3
+TEMP_EVALUATION = 0.1
+
 _chat_provider: ChatProvider | None = None
 
 
@@ -205,6 +277,7 @@ def generate_json(
     prompt: str,
     system_prompt: str = SYSTEM_MEDICAL,
     max_retries: int = MAX_RETRIES,
+    temperature: float = 0.2,
 ) -> dict[str, Any]:
     """Send a prompt and parse the response as JSON.
 
@@ -219,7 +292,7 @@ def generate_json(
             raw = _get_chat().chat(
                 messages=[{"role": "user", "content": prompt}],
                 system_prompt=system_prompt,
-                temperature=0.2,
+                temperature=temperature,
                 json_mode=True,
             )
             return json.loads(raw)
@@ -301,19 +374,27 @@ def _extract_json(text: str) -> dict[str, Any]:
 def expand_note(note: str) -> dict[str, Any]:
     """Expand a doctor's shorthand note into structured clinical data."""
     prompt = EXPAND_NOTE_PROMPT.format(note=note)
-    return generate_json(prompt)
+    return generate_json(
+        prompt,
+        system_prompt=SYSTEM_ENTITY_EXTRACTION,
+        temperature=TEMP_EXTRACTION,
+    )
 
 
 def extract_entities(note: str) -> dict[str, Any]:
     """Extract medical entities from a clinical note."""
     prompt = ENTITY_EXTRACTION_PROMPT.format(note=note)
-    return generate_json(prompt)
+    return generate_json(
+        prompt,
+        system_prompt=SYSTEM_ENTITY_EXTRACTION,
+        temperature=TEMP_EXTRACTION,
+    )
 
 
 def generate_report(
     note: str,
-    patient_data: str = "Not available",
-    guidelines: str = "Not available",
+    patient_data: str = "Não disponível",
+    guidelines: str = "Não disponível",
     refinement_context: str = "",
 ) -> dict[str, Any]:
     """Generate a structured medical report from a clinical note and context."""
@@ -323,7 +404,11 @@ def generate_report(
         guidelines=guidelines,
         refinement_context=refinement_context,
     )
-    return generate_json(prompt)
+    return generate_json(
+        prompt,
+        system_prompt=SYSTEM_REPORT_GENERATION,
+        temperature=TEMP_REPORT,
+    )
 
 
 def decide_retrieval(note: str, entities: list[dict]) -> dict[str, Any]:
@@ -332,7 +417,11 @@ def decide_retrieval(note: str, entities: list[dict]) -> dict[str, Any]:
         note=note,
         entities=json.dumps(entities, ensure_ascii=False, indent=2),
     )
-    return generate_json(prompt)
+    return generate_json(
+        prompt,
+        system_prompt=SYSTEM_RAG_DECISION,
+        temperature=TEMP_RAG_DECISION,
+    )
 
 
 def evaluate_report(
@@ -346,4 +435,8 @@ def evaluate_report(
         note=note or "Não disponível",
         patient_data=patient_data or "Não disponível",
     )
-    return generate_json(prompt)
+    return generate_json(
+        prompt,
+        system_prompt=SYSTEM_REPORT_EVALUATION,
+        temperature=TEMP_EVALUATION,
+    )

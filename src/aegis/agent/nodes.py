@@ -127,6 +127,8 @@ def _select_dynamic_tools(entities: list[dict[str, str]]) -> list[str]:
         "procedure": "consultar_procedimentos",
         "exam": "consultar_exames",
         "lab": "consultar_exames",
+        "lab_result": "consultar_exames",
+        "allergy": "consultar_alergias",
     }
     for etype, tool_name in type_tool_map.items():
         if etype in entity_types:

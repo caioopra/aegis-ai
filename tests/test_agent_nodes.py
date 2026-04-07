@@ -286,6 +286,20 @@ class TestSelectDynamicTools:
         result = _select_dynamic_tools(entities)
         assert "consultar_procedimentos" in result
 
+    def test_selects_exames_by_lab_result_type(self):
+        entities = [
+            {"text": "HbA1c 8.2", "type": "lab_result", "normalized": "Hemoglobina glicada 8,2%"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_exames" in result
+
+    def test_selects_alergias_by_allergy_type(self):
+        entities = [
+            {"text": "penicilina", "type": "allergy", "normalized": "Alergia a penicilina"},
+        ]
+        result = _select_dynamic_tools(entities)
+        assert "consultar_alergias" in result
+
     def test_returns_sorted(self):
         entities = [
             {"text": "vacina covid", "type": "procedure", "normalized": "vacinação"},
