@@ -395,6 +395,59 @@ class TestDecideRetrieval:
         assert len(result["retrieval_queries"]) > 0
         assert any("falha" in w for w in result["warnings"])
 
+    def test_safety_net_forces_retrieval_on_condition(self):
+        """LLM says no, but a condition is present — safety net overrides."""
+        mock_result = {"needs_retrieval": False, "queries": []}
+        with patch("aegis.agent.nodes.llm_decide_retrieval", return_value=mock_result):
+            state = {
+                "patient_note": "Paciente com HAS leve",
+                "extracted_entities": [
+                    {"text": "HAS", "type": "condition", "normalized": "Hipertensão arterial"},
+                ],
+            }
+            result = decide_retrieval(state)
+
+        assert result["needs_retrieval"] is True
+        assert any("segurança" in w for w in result["warnings"])
+        # Safety net should seed queries from the clinical entity
+        assert result["retrieval_queries"]
+        assert any("Hipertensão" in q for q in result["retrieval_queries"])
+
+    def test_safety_net_forces_retrieval_on_medication(self):
+        """LLM says no, but a medication is present — safety net overrides."""
+        mock_result = {"needs_retrieval": False, "queries": []}
+        with patch("aegis.agent.nodes.llm_decide_retrieval", return_value=mock_result):
+            state = {
+                "patient_note": "Retorno em uso de losartana",
+                "extracted_entities": [
+                    {
+                        "text": "losartana",
+                        "type": "medication",
+                        "normalized": "Losartana 50 mg",
+                    },
+                ],
+            }
+            result = decide_retrieval(state)
+
+        assert result["needs_retrieval"] is True
+        assert any("segurança" in w for w in result["warnings"])
+
+    def test_safety_net_does_not_fire_without_clinical_entities(self):
+        """Routine note with only a symptom — LLM decision (False) is respected."""
+        mock_result = {"needs_retrieval": False, "queries": []}
+        with patch("aegis.agent.nodes.llm_decide_retrieval", return_value=mock_result):
+            state = {
+                "patient_note": "Paciente refere leve cefaleia passageira",
+                "extracted_entities": [
+                    {"text": "cefaleia", "type": "symptom", "normalized": "Cefaleia"},
+                ],
+            }
+            result = decide_retrieval(state)
+
+        assert result["needs_retrieval"] is False
+        assert result["retrieval_queries"] == []
+        assert not any("segurança" in w for w in result.get("warnings", []))
+
 
 # ------------------------------------------------------------------
 # retrieve_guidelines
@@ -692,6 +745,30 @@ class TestGenerateReport:
 
             # No truncation warning expected
             assert not any("truncado" in w for w in result["warnings"])
+
+    def test_attaches_ai_disclaimer(self):
+        """Every report must carry the hardcoded AI disclaimer."""
+        from aegis.agent.nodes import AI_DISCLAIMER
+
+        mock_report = {"findings": ["achado"], "plan": ["plano"]}
+        with patch("aegis.agent.nodes.llm_generate_report", return_value=mock_report):
+            state = {"patient_note": "Nota"}
+            result = generate_report(state)
+
+        assert result["report"]["disclaimer"] == AI_DISCLAIMER
+        assert "IA" in AI_DISCLAIMER
+        assert "NÃO substitui" in AI_DISCLAIMER
+
+    def test_disclaimer_present_on_error_path(self):
+        """Even an error-path fallback report must carry the disclaimer."""
+        from aegis.agent.nodes import AI_DISCLAIMER
+
+        with patch("aegis.agent.nodes.llm_generate_report", side_effect=ValueError("boom")):
+            state = {"patient_note": "Nota"}
+            result = generate_report(state)
+
+        assert result["report"]["disclaimer"] == AI_DISCLAIMER
+        assert "error" in result["report"]
 
 
 # ------------------------------------------------------------------

@@ -38,6 +38,10 @@ from aegis.rag.retriever import format_context, retrieve
 
 logger = logging.getLogger(__name__)
 
+# Mandatory disclaimer attached to every generated report. Hardcoded so the
+# LLM cannot omit or soften it.
+AI_DISCLAIMER = "Este relatório foi gerado por IA e NÃO substitui o julgamento clínico do médico."
+
 # ------------------------------------------------------------------
 # Dynamic tool selection mappings
 # ------------------------------------------------------------------
@@ -231,8 +235,26 @@ def parse_note(state: AgentState) -> dict[str, Any]:
     }
 
 
+# Entity types that should always trigger guideline retrieval — having a real
+# condition or prescribed medication means the report needs evidence backing.
+_SAFETY_NET_ENTITY_TYPES = frozenset({"condition", "medication", "medicamento", "drug"})
+
+
+def _has_clinical_entities(entities: list[dict[str, str]]) -> bool:
+    """Return True if any entity is a condition or medication."""
+    for e in entities:
+        if str(e.get("type", "")).lower() in _SAFETY_NET_ENTITY_TYPES:
+            return True
+    return False
+
+
 def decide_retrieval(state: AgentState) -> dict[str, Any]:
-    """Self-RAG: let the LLM decide if guideline retrieval is needed."""
+    """Self-RAG: let the LLM decide if guideline retrieval is needed.
+
+    Safety net: when any condition or medication was extracted, force
+    retrieval regardless of the LLM's decision — notes with real clinical
+    content should always be grounded in guidelines.
+    """
     note = state["patient_note"]
     entities = state.get("extracted_entities", [])
     warnings: list[str] = []
@@ -251,6 +273,25 @@ def decide_retrieval(state: AgentState) -> dict[str, Any]:
         needs = True
         queries = [note[:100]]
         warnings.append(f"decide_retrieval: falha no LLM, forçando retrieval — {e}")
+
+    # Safety net: override LLM when clinical entities are present.
+    if not needs and _has_clinical_entities(entities):
+        needs = True
+        warnings.append(
+            "decide_retrieval: rede de segurança ativada — "
+            "condições/medicamentos detectados, forçando retrieval"
+        )
+
+    # If retrieval is forced but no queries were produced, seed from entities
+    # or note so retrieve_guidelines has something to search on.
+    if needs and not queries:
+        clinical_terms = [
+            str(e.get("normalized", "") or e.get("text", "")).strip()
+            for e in entities
+            if str(e.get("type", "")).lower() in _SAFETY_NET_ENTITY_TYPES
+        ]
+        clinical_terms = [t for t in clinical_terms if t]
+        queries = clinical_terms[:3] if clinical_terms else [note[:100]]
 
     return {
         "needs_retrieval": needs,
@@ -450,6 +491,11 @@ def generate_report(state: AgentState) -> dict[str, Any]:
             "plan": [],
         }
         warnings.append(f"generate_report: falha na geração — {e}")
+
+    # Mandatory AI disclaimer — hardcoded, never LLM-generated. Applies to
+    # both successful and error-path reports.
+    if isinstance(report, dict):
+        report["disclaimer"] = AI_DISCLAIMER
 
     return {"report": report, "warnings": warnings}
 

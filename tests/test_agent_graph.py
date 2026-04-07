@@ -392,7 +392,10 @@ class TestRunnerModule:
 
         assert "report" in result
         assert "evaluation" in result
-        assert result["report"] == {"findings": ["HAS"], "plan": ["BCC"]}
+        assert result["report"]["findings"] == ["HAS"]
+        assert result["report"]["plan"] == ["BCC"]
+        # generate_report node attaches a mandatory AI disclaimer
+        assert "disclaimer" in result["report"]
         assert result["evaluation"]["overall"]["score"] == 4
 
     def test_stream_pipeline_yields_steps(self, loaded_store: FHIRStore):
