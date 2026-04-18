@@ -115,6 +115,7 @@ class TestGraphStructure:
             "retrieve_guidelines",
             "fetch_patient_data",
             "generate_report",
+            "check_allergy_safety",
             "evaluate_report",
             "increment_retry",
         }
@@ -129,6 +130,49 @@ class TestGraphStructure:
         edges = [(e.source, e.target) for e in graph_data.edges]
         assert ("retrieve_guidelines", "generate_report") in edges
         assert ("fetch_patient_data", "generate_report") in edges
+
+    def test_allergy_check_inserted_between_generate_and_evaluate(self):
+        """generate_report → check_allergy_safety → evaluate_report."""
+        graph = build_graph()
+        edges = [(e.source, e.target) for e in graph.get_graph().edges]
+        assert ("generate_report", "check_allergy_safety") in edges
+        assert ("check_allergy_safety", "evaluate_report") in edges
+        # Old direct edge must no longer exist
+        assert ("generate_report", "evaluate_report") not in edges
+
+    def test_retry_loop_goes_through_allergy_check(self, loaded_store: FHIRStore):
+        """After a retry, generate_report still feeds into check_allergy_safety."""
+        call_count = {"generate": 0, "evaluate": 0}
+
+        def mock_generate(note, patient_data="", guidelines="", refinement_context=""):
+            call_count["generate"] += 1
+            return {"findings": [f"attempt {call_count['generate']}"], "plan": []}
+
+        def mock_evaluate(report, note="", patient_data=""):
+            call_count["evaluate"] += 1
+            score = 2 if call_count["evaluate"] == 1 else 4
+            return {"overall": {"score": score, "feedback": f"score {score}"}}
+
+        with (
+            patch(
+                "aegis.agent.nodes.extract_entities",
+                side_effect=lambda n: {"entities": [{"text": "João", "type": "patient"}]},
+            ),
+            patch(
+                "aegis.agent.nodes.llm_decide_retrieval",
+                return_value={"needs_retrieval": False, "queries": []},
+            ),
+            patch("aegis.agent.nodes.llm_generate_report", side_effect=mock_generate),
+            patch("aegis.agent.nodes.llm_evaluate_report", side_effect=mock_evaluate),
+            patch("aegis.fhir.get_store", return_value=loaded_store),
+        ):
+            graph = build_graph()
+            result = graph.invoke({"patient_note": "Paciente João, 65a, HAS"})
+
+        # check_allergy_safety runs once per generate_report call (2 times total)
+        assert call_count["generate"] == 2
+        assert call_count["evaluate"] == 2
+        assert result["retry_count"] == 1
 
 
 # ------------------------------------------------------------------

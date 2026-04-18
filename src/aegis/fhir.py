@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +124,26 @@ class FHIRStore:
     def get_allergy_intolerances(self, patient_id: str) -> list[Resource]:
         """Return AllergyIntolerance resources for a patient."""
         return self.get_resources(patient_id, "AllergyIntolerance")
+
+    def get_patient_by_cpf(self, cpf: str) -> Resource | None:
+        """Lookup a patient by CPF (Brazilian tax ID).
+
+        Normalizes the CPF by stripping dots and dashes before comparison.
+        Returns None if no patient has a matching identifier with the
+        Brazilian CPF OID (urn:oid:2.16.840.1.113883.13.237).
+        """
+        if not cpf:
+            return None
+        cpf_digits = re.sub(r"\D", "", cpf)
+        if not cpf_digits:
+            return None
+        for patient in self._patients.values():
+            for identifier in patient.get("identifier", []):
+                if identifier.get("system") == "urn:oid:2.16.840.1.113883.13.237":
+                    stored_digits = re.sub(r"\D", "", identifier.get("value", ""))
+                    if stored_digits == cpf_digits:
+                        return patient
+        return None
 
     # ------------------------------------------------------------------
     # Internal helpers

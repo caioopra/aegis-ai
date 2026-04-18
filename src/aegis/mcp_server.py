@@ -46,7 +46,80 @@ DRUG_INTERACTIONS: dict[frozenset[str], str] = {
         "Hipocalemia induzida por tiazídicos potencializa toxicidade "
         "digitálica. Monitorar potássio e digoxina."
     ),
+    # --- novos pares (Phase 12 Step 7) ---
+    frozenset({"espironolactona", "metformina"}): (
+        "Em paciente com função renal limítrofe (eGFR < 60), o uso conjunto pode "
+        "aumentar risco de hipercalemia (espironolactona) e acidose lática (metformina). "
+        "Ambos são riscos independentes — não há interação farmacológica direta. "
+        "Monitorar função renal e potássio."
+    ),
+    frozenset({"carvedilol", "metformina"}): (
+        "Betabloqueador pode mascarar sintomas adrenérgicos de hipoglicemia (tremor, "
+        "taquicardia). NÃO contraindica a associação — esta é base do tratamento da "
+        "ICFER em diabéticos. Orientar paciente a reconhecer sintomas alternativos "
+        "(sudorese, confusão, fome intensa) e manter glicemia capilar monitorada."
+    ),
+    frozenset({"dapagliflozina", "hidroclorotiazida"}): (
+        "Risco de depleção volêmica e hipotensão. Monitorar pressão arterial e função renal."
+    ),
+    frozenset({"losartana", "dapagliflozina"}): (
+        "Risco de hipotensão sintomática transitória, particularmente nas primeiras 1-2 "
+        "semanas após início do iSGLT2. Esta combinação é base do tratamento da ICFER — "
+        "não contraindicada. Considerar redução temporária do diurético; manter o BRA. "
+        "Monitorar PA e volemia nas primeiras semanas."
+    ),
+    frozenset({"digoxina", "espironolactona"}): (
+        "Risco de toxicidade digitálica. Monitorar níveis séricos de digoxina."
+    ),
+    frozenset({"carvedilol", "verapamil"}): (
+        "Risco de bradicardia severa e bloqueio AV. Evitar associação."
+    ),
+    frozenset({"anlodipino", "sinvastatina"}): (
+        "Aumenta nível sérico da sinvastatina. Limitar dose de sinvastatina a 20mg/dia."
+    ),
+    frozenset({"varfarina", "amiodarona"}): (
+        "Amiodarona potencializa efeito anticoagulante. "
+        "Reduzir dose de varfarina em 30-50% e monitorar INR."
+    ),
+    frozenset({"varfarina", "levofloxacino"}): (
+        "Risco de aumento do INR. Monitorar coagulação durante e após o tratamento."
+    ),
+    frozenset({"varfarina", "aas"}): (
+        "Risco hemorrágico aumentado. Avaliar benefício vs risco e monitorar sinais de sangramento."
+    ),
+    frozenset({"clopidogrel", "omeprazol"}): (
+        "Omeprazol reduz eficácia do clopidogrel. Preferir pantoprazol."
+    ),
 }
+
+# ------------------------------------------------------------------
+# Brand name → generic name mapping (nomes comerciais brasileiros comuns)
+# ------------------------------------------------------------------
+
+BRAND_TO_GENERIC: dict[str, str] = {
+    "aradois": "losartana",
+    "cozaar": "losartana",
+    "glifage": "metformina",
+    "glucoformin": "metformina",
+    "lasix": "furosemida",
+    "capoten": "captopril",
+    "renitec": "enalapril",
+    "selozok": "metoprolol",
+    "coreg": "carvedilol",
+    "aldactone": "espironolactona",
+    "forxiga": "dapagliflozina",
+    "jardiance": "empagliflozina",
+    "marevan": "varfarina",
+    "aspirina": "aas",
+}
+
+# ------------------------------------------------------------------
+# Disclaimer educacional obrigatório em toda resposta de interação
+# ------------------------------------------------------------------
+
+DRUG_INTERACTION_DISCLAIMER = (
+    "Base educacional. Consulte bulário oficial e farmacovigilância antes de prescrever."
+)
 
 
 # ------------------------------------------------------------------
@@ -278,8 +351,13 @@ def _format_allergy(allergy: Resource) -> str:
 
 
 def _normalize_drug_name(name: str) -> str:
-    """Normalize a drug name for interaction lookup."""
-    return name.strip().lower()
+    """Normalize a drug name for interaction lookup.
+
+    Lowercases, strips whitespace, then resolves brand names to their
+    generic equivalents using BRAND_TO_GENERIC.
+    """
+    normalized = name.strip().lower()
+    return BRAND_TO_GENERIC.get(normalized, normalized)
 
 
 # ------------------------------------------------------------------
@@ -451,12 +529,37 @@ def verificar_interacao_medicamentosa(medicamento_a: str, medicamento_b: str) ->
     interaction = DRUG_INTERACTIONS.get(pair)
 
     if interaction:
-        return f"⚠ Interação encontrada entre {medicamento_a} e {medicamento_b}:\n{interaction}"
+        return (
+            f"⚠ Interação encontrada entre {medicamento_a} e {medicamento_b}:\n"
+            f"{interaction}\n\n"
+            f"⚠ {DRUG_INTERACTION_DISCLAIMER}"
+        )
     return (
         f"Nenhuma interação conhecida entre {medicamento_a} e {medicamento_b}.\n"
         "Nota: esta verificação cobre apenas interações comuns pré-cadastradas. "
-        "Consulte fontes farmacológicas completas para análise definitiva."
+        "Consulte fontes farmacológicas completas para análise definitiva.\n\n"
+        f"⚠ {DRUG_INTERACTION_DISCLAIMER}"
     )
+
+
+@mcp.tool(
+    name="buscar_paciente_cpf",
+    description="Busca um paciente pelo CPF. Atenção: CPF é dado sensível sob a LGPD.",
+)
+def buscar_paciente_cpf(cpf: str) -> str:
+    """Busca um paciente pelo CPF (Cadastro de Pessoa Física).
+
+    Aceita CPF formatado (111.111.111-11) ou sem formatação (11111111111).
+    O CPF é dado pessoal sensível protegido pela LGPD — use apenas para
+    fins clínicos autorizados.
+
+    Retorna os dados demográficos do paciente encontrado, ou mensagem
+    indicando que nenhum paciente foi localizado.
+    """
+    patient = aegis.fhir.get_store().get_patient_by_cpf(cpf)
+    if patient is None:
+        return "Nenhum paciente encontrado com o CPF informado."
+    return _format_patient(patient)
 
 
 # ------------------------------------------------------------------

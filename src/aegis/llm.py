@@ -6,12 +6,82 @@ import json
 import logging
 import re
 import time
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, ValidationError
 
 from aegis.providers import get_chat_provider
 from aegis.providers.base import ChatProvider
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Pydantic output schemas
+# ---------------------------------------------------------------------------
+
+
+class ExtractedEntity(BaseModel):
+    text: str
+    type: Literal[
+        "symptom",
+        "sign",
+        "medication",
+        "condition",
+        "vital_sign",
+        "procedure",
+        "lab_result",
+        "allergy",
+        "family_history",
+        "social_history",
+    ]
+    normalized: str | None = None
+
+
+class EntityExtractionResult(BaseModel):
+    entities: list[ExtractedEntity]
+
+
+class RetrievalDecision(BaseModel):
+    needs_retrieval: bool
+    queries: list[str] = []
+    reasoning: str = ""
+
+
+class AcompanhamentoSection(BaseModel):
+    proxima_visita: str = ""
+    exames_a_repetir: list[str] = []
+    sinais_para_escalar: list[str] = []
+
+
+class ClinicalReport(BaseModel):
+    patient_summary: str = ""
+    findings: list[str] = []
+    assessment: str = ""
+    plan: list[str] = []
+    guideline_references: list[str] = []
+    diagnosticos_diferenciais: list[str] = []
+    sinais_alarme: list[str] = []
+    acompanhamento: AcompanhamentoSection = Field(default_factory=AcompanhamentoSection)
+    interacoes_medicamentosas: list[str] = []
+    limitacoes: list[str] = []
+    disclaimer: str | None = None  # injected by nodes.py after generation
+
+
+class DimensionScore(BaseModel):
+    score: int = Field(ge=1, le=5)
+    feedback: str = ""
+
+
+class ReportEvaluation(BaseModel):
+    completeness: DimensionScore
+    accuracy: DimensionScore
+    guideline_adherence: DimensionScore
+    clarity: DimensionScore
+    safety: DimensionScore
+    follow_up_quality: DimensionScore
+    overall: DimensionScore
+
 
 # ---------------------------------------------------------------------------
 # Prompt templates
@@ -84,15 +154,28 @@ Gere um relatório médico estruturado com base nas seguintes informações.
 
 {refinement_context}
 
-Retorne um objeto JSON com estas seções:
-- "patient_summary": descrição breve do paciente (1-2 frases: idade, sexo, condições principais)
-- "findings": lista de achados clínicos da nota e dos dados do paciente
-- "assessment": avaliação clínica e raciocínio (referencie diretrizes quando aplicável)
-- "plan": plano de cuidado recomendado (ações específicas, medicamentos com doses se aplicável)
-- "guideline_references": lista de trechos das diretrizes que fundamentam o plano
+Retorne um objeto JSON com EXATAMENTE estas 10 seções:
+
+1. "patient_summary": descrição breve do paciente (1-2 frases: idade, sexo, condições principais)
+2. "findings": lista de achados clínicos da nota e dos dados do paciente
+3. "assessment": avaliação clínica e raciocínio (referencie diretrizes quando aplicável)
+4. "plan": lista de ações do plano de cuidado (medicamentos com doses, encaminhamentos, orientações)
+5. "guideline_references": lista de trechos das diretrizes que fundamentam o plano
+6. "diagnosticos_diferenciais": lista de diagnósticos diferenciais, cada um com breve justificativa \
+clínica (ex.: "Insuficiência cardíaca descompensada — dispneia + edema + ortopneia")
+7. "sinais_alarme": lista de sinais de alerta que o clínico deve monitorar ativamente \
+(ex.: "Piora súbita da dispneia — avaliar descompensação aguda")
+8. "acompanhamento": objeto com três campos:
+   - "proxima_visita": prazo e objetivo da próxima consulta (ex.: "Retorno em 30 dias para reavaliação da PA")
+   - "exames_a_repetir": lista de exames a solicitar no retorno (ex.: "HbA1c em 3 meses")
+   - "sinais_para_escalar": lista de situações que justificam contato imediato ou ida a emergência
+9. "interacoes_medicamentosas": lista de interações medicamentosas identificadas pelo sistema \
+(pode ser vazia se nenhuma foi detectada; inclua apenas interações com evidência clínica)
+10. "limitacoes": lista de limitações deste relatório (dados ausentes, baixa confiança, \
+lacunas nas diretrizes disponíveis)
 
 Se alguma seção não tiver dados disponíveis (marcada como "Não disponível"), indique \
-essa limitação explicitamente na avaliação. Não invente dados que não estejam presentes.
+essa limitação em "limitacoes". Não invente dados que não estejam presentes nas fontes.
 
 Responda APENAS com JSON válido, sem texto adicional.
 """
@@ -188,21 +271,28 @@ original e os dados do paciente.
 ## Relatório a Avaliar
 {report}
 
-Pontue cada dimensão de 1 a 5 usando esta rubrica:
+Pontue cada dimensão de 1 a 5 usando esta rubrica geral:
 - 1 = Lacunas ou erros críticos que podem afetar decisões clínicas
 - 2 = Informações importantes ausentes ou imprecisas
 - 3 = Aceitável — cobre os pontos principais com lacunas menores
 - 4 = Bom — abrangente com apenas omissões triviais
 - 5 = Excelente — completo, preciso e bem referenciado
 
-Dimensões a pontuar:
+Dimensões a pontuar (7 no total):
 - "completeness": todos os achados da nota estão contemplados no relatório?
 - "accuracy": o raciocínio médico é correto e consistente com os dados?
 - "guideline_adherence": o plano segue as diretrizes clínicas fornecidas?
 - "clarity": o relatório é claro, bem estruturado e acionável?
-- "overall": pontuação geral considerando todas as dimensões
+- "safety": o relatório identifica sinais de alerta ("sinais_alarme") relevantes e \
+sinaliza interações medicamentosas quando presentes? Pontue 1 se sinais_alarme está \
+vazio sem justificativa, se há interações conhecidas não reportadas, ou se há conflito \
+alergia-medicação não sinalizado.
+- "follow_up_quality": o campo "acompanhamento" é acionável? Verifique se há prazo \
+concreto para a próxima visita, exames específicos a repetir e critérios claros para \
+escalar. Pontue 1 se acompanhamento estiver vazio ou genérico demais.
+- "overall": pontuação geral considerando todas as dimensões anteriores
 
-Retorne um objeto JSON com esses campos, cada um contendo "score" (int 1-5) e \
+Retorne um objeto JSON com esses 7 campos, cada um contendo "score" (int 1-5) e \
 "feedback" (string com observações específicas).
 
 Responda APENAS com JSON válido, sem texto adicional.
@@ -384,11 +474,16 @@ def expand_note(note: str) -> dict[str, Any]:
 def extract_entities(note: str) -> dict[str, Any]:
     """Extract medical entities from a clinical note."""
     prompt = ENTITY_EXTRACTION_PROMPT.format(note=note)
-    return generate_json(
+    raw = generate_json(
         prompt,
         system_prompt=SYSTEM_ENTITY_EXTRACTION,
         temperature=TEMP_EXTRACTION,
     )
+    try:
+        return EntityExtractionResult.model_validate(raw).model_dump()
+    except ValidationError as exc:
+        logger.warning("Validação Pydantic falhou em extract_entities: %s", exc)
+        return raw
 
 
 def generate_report(
@@ -404,11 +499,16 @@ def generate_report(
         guidelines=guidelines,
         refinement_context=refinement_context,
     )
-    return generate_json(
+    raw = generate_json(
         prompt,
         system_prompt=SYSTEM_REPORT_GENERATION,
         temperature=TEMP_REPORT,
     )
+    try:
+        return ClinicalReport.model_validate(raw).model_dump()
+    except ValidationError as exc:
+        logger.warning("Validação Pydantic falhou em generate_report: %s", exc)
+        return raw
 
 
 def decide_retrieval(note: str, entities: list[dict]) -> dict[str, Any]:
@@ -417,11 +517,16 @@ def decide_retrieval(note: str, entities: list[dict]) -> dict[str, Any]:
         note=note,
         entities=json.dumps(entities, ensure_ascii=False, indent=2),
     )
-    return generate_json(
+    raw = generate_json(
         prompt,
         system_prompt=SYSTEM_RAG_DECISION,
         temperature=TEMP_RAG_DECISION,
     )
+    try:
+        return RetrievalDecision.model_validate(raw).model_dump()
+    except ValidationError as exc:
+        logger.warning("Validação Pydantic falhou em decide_retrieval: %s", exc)
+        return raw
 
 
 def evaluate_report(
@@ -435,8 +540,13 @@ def evaluate_report(
         note=note or "Não disponível",
         patient_data=patient_data or "Não disponível",
     )
-    return generate_json(
+    raw = generate_json(
         prompt,
         system_prompt=SYSTEM_REPORT_EVALUATION,
         temperature=TEMP_EVALUATION,
     )
+    try:
+        return ReportEvaluation.model_validate(raw).model_dump()
+    except ValidationError as exc:
+        logger.warning("Validação Pydantic falhou em evaluate_report: %s", exc)
+        return raw

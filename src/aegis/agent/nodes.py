@@ -91,13 +91,6 @@ TOOL_KEYWORDS: dict[str, list[str]] = {
         "influenza",
         "gripe",
     ],
-    "consultar_alergias": [
-        "alergia",
-        "alérgico",
-        "alérgica",
-        "reação adversa",
-        "intolerância",
-    ],
 }
 
 # Map from tool name to the callable MCP function
@@ -106,7 +99,6 @@ _DYNAMIC_TOOL_FNS: dict[str, Any] = {
     "consultar_exames": consultar_exames,
     "consultar_encontros": consultar_encontros,
     "consultar_imunizacoes": consultar_imunizacoes,
-    "consultar_alergias": consultar_alergias,
 }
 
 
@@ -132,7 +124,6 @@ def _select_dynamic_tools(entities: list[dict[str, str]]) -> list[str]:
         "exam": "consultar_exames",
         "lab": "consultar_exames",
         "lab_result": "consultar_exames",
-        "allergy": "consultar_alergias",
     }
     for etype, tool_name in type_tool_map.items():
         if etype in entity_types:
@@ -160,6 +151,9 @@ def _extract_medication_names(entities: list[dict[str, str]]) -> list[str]:
     return names
 
 
+_CPF_PATTERN = re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b")
+
+
 def _match_patient_id(
     entities: list[dict[str, str]],
     note: str = "",
@@ -167,16 +161,30 @@ def _match_patient_id(
     """Try to match a patient ID from extracted entities and the raw note.
 
     Returns ``(patient_id, match_type)`` where match_type is one of:
-    ``"exact"``, ``"partial"``, or ``"none"``.
+    ``"exact"``, ``"partial"``, ``"cpf"``, or ``"none"``.
+
+    CPF lookup is attempted first (before name matching) when a CPF pattern
+    is found in the note or entity texts.  The raw match value is passed
+    directly to ``get_patient_by_cpf`` — do not log it in plaintext.
     """
-    patients = aegis.fhir.get_store().list_patients()
+    store = aegis.fhir.get_store()
+    patients = store.list_patients()
     if not patients:
         return "", "none"
 
-    # Collect names/text from entities
+    # Collect names/text from entities (used both for CPF fallback and name matching)
     entity_texts = " ".join(
         str(e.get("text", "")) + " " + str(e.get("normalized", "")) for e in entities
     ).lower()
+
+    # --- CPF branch: search note first, then entity texts ---
+    cpf_match = _CPF_PATTERN.search(note) or _CPF_PATTERN.search(entity_texts)
+    if cpf_match:
+        logger.debug("_match_patient_id: CPF extraído da nota, tentando lookup")
+        patient_dict = store.get_patient_by_cpf(cpf_match.group(0))
+        if patient_dict is not None:
+            return patient_dict["id"], "cpf"
+        # CPF found but no hit — fall through to name matching
 
     # The note itself is the most reliable source for patient names,
     # since the entity extraction prompt focuses on medical entities
@@ -226,6 +234,24 @@ def parse_note(state: AgentState) -> dict[str, Any]:
 
     if match_type == "none" and patient_id == "":
         warnings.append("parse_note: paciente não identificado na nota")
+    elif match_type == "cpf" and patient_id:
+        # Consistency check: verify the resolved patient's name appears in the note.
+        # A CPF that maps to a different person than the one named in the note is a
+        # potential data-mix-up (e.g., wrong CPF transcribed).
+        store = aegis.fhir.get_store()
+        try:
+            patients = store.list_patients()
+            resolved_name = next((p["name"] for p in patients if p["id"] == patient_id), "").lower()
+            if resolved_name:
+                name_parts = [part for part in resolved_name.split() if len(part) > 2]
+                name_found_in_note = any(part in note.lower() for part in name_parts)
+                if not name_found_in_note:
+                    warnings.append(
+                        "parse_note: CPF resolveu para paciente cujo nome não consta na nota "
+                        "— verifique se o CPF foi digitado corretamente"
+                    )
+        except Exception:
+            pass  # Non-fatal — don't break the pipeline for a consistency hint
 
     return {
         "extracted_entities": entities,
@@ -271,7 +297,7 @@ def decide_retrieval(state: AgentState) -> dict[str, Any]:
         logger.error("decide_retrieval failed: %s", e)
         # Default to retrieving — safer to have guidelines than not
         needs = True
-        queries = [note[:100]]
+        queries = ["avaliação clínica geral"]
         warnings.append(f"decide_retrieval: falha no LLM, forçando retrieval — {e}")
 
     # Safety net: override LLM when clinical entities are present.
@@ -291,7 +317,7 @@ def decide_retrieval(state: AgentState) -> dict[str, Any]:
             if str(e.get("type", "")).lower() in _SAFETY_NET_ENTITY_TYPES
         ]
         clinical_terms = [t for t in clinical_terms if t]
-        queries = clinical_terms[:3] if clinical_terms else [note[:100]]
+        queries = clinical_terms[:3] if clinical_terms else ["avaliação clínica geral"]
 
     return {
         "needs_retrieval": needs,
@@ -366,12 +392,13 @@ def fetch_patient_data(state: AgentState) -> dict[str, Any]:
             "warnings": warnings,
         }
 
-    # Base tools — always called
+    # Base tools — always called (allergy data must always be present for safety)
     base_tools: list[tuple[str, Any]] = [
         ("consultar_paciente", consultar_paciente),
         ("consultar_condicoes", consultar_condicoes),
         ("consultar_medicamentos", consultar_medicamentos),
         ("consultar_sinais_vitais", consultar_sinais_vitais),
+        ("consultar_alergias", consultar_alergias),
     ]
 
     # Dynamic tools — selected based on entities
@@ -496,6 +523,151 @@ def generate_report(state: AgentState) -> dict[str, Any]:
     # both successful and error-path reports.
     if isinstance(report, dict):
         report["disclaimer"] = AI_DISCLAIMER
+
+    return {"report": report, "warnings": warnings}
+
+
+# ------------------------------------------------------------------
+# Allergy-prescription safety check
+# ------------------------------------------------------------------
+
+# Drug-class groupings for allergy cross-check.  Keys are class names;
+# values are all member drug names (lowercased) that belong to that class.
+ALLERGY_CLASS_GROUPS: dict[str, set[str]] = {
+    "penicilina": {
+        "penicilina",
+        "amoxicilina",
+        "ampicilina",
+        "benzetacil",
+        "oxacilina",
+        "ampicilina+sulbactam",
+        "amoxicilina+clavulanato",
+    },
+    "sulfa": {
+        "sulfa",
+        "sulfametoxazol",
+        "sulfadiazina",
+        "sulfassalazina",
+        "bactrim",
+        "sulfametoxazol+trimetoprima",
+    },
+    "aine": {
+        "aine",
+        "anti-inflamatório",
+        "ibuprofeno",
+        "diclofenaco",
+        "naproxeno",
+        "nimesulida",
+        "cetoprofeno",
+        "piroxicam",
+        "celecoxibe",
+        "aspirina",
+        "aas",
+        "ácido acetilsalicílico",
+        "meloxicam",
+        "etoricoxibe",
+    },
+    "cefalosporina": {
+        "cefalosporina",
+        "cefalexina",
+        "cefazolina",
+        "ceftriaxona",
+        "cefuroxima",
+        "cefepima",
+    },
+}
+
+
+def _extract_allergen_names(patient_data: str) -> list[str]:
+    """Return allergen class names present in the patient_data string.
+
+    Scans the formatted text returned by ``consultar_alergias`` for known
+    drug-class keywords (lowercased).  Returns unique class names only.
+    """
+    haystack = patient_data.lower()
+    found: list[str] = []
+    for class_name, members in ALLERGY_CLASS_GROUPS.items():
+        for drug in members:
+            if drug in haystack:
+                found.append(class_name)
+                break
+    return found
+
+
+def _extract_plan_medications(plan_items: list[str]) -> list[str]:
+    """Extract drug names (lowercased) mentioned in report plan items.
+
+    Only considers drugs present in ``ALLERGY_CLASS_GROUPS`` since the
+    allergy check only needs to cross-reference those classes.
+    """
+    all_known_drugs: set[str] = set()
+    for members in ALLERGY_CLASS_GROUPS.values():
+        all_known_drugs.update(members)
+
+    found: list[str] = []
+    for item in plan_items:
+        item_lower = item.lower()
+        for drug in all_known_drugs:
+            # Word-boundary match so "ampicilina" doesn't match "ampicilinax"
+            if re.search(r"\b" + re.escape(drug) + r"\b", item_lower):
+                if drug not in found:
+                    found.append(drug)
+    return found
+
+
+def check_allergy_safety(state: AgentState) -> dict[str, Any]:
+    """Cross-check the generated plan against the patient's known allergies.
+
+    Surfaces warnings in ``report["sinais_alarme"]`` and ``state["warnings"]``
+    when the plan contains a medication belonging to the same drug class as a
+    known allergy.  Does NOT rewrite or block the plan — the clinician decides.
+    """
+    report = state.get("report", {})
+    patient_data = state.get("patient_data", "")
+    warnings: list[str] = []
+
+    if not isinstance(report, dict) or "error" in report:
+        return {"report": report, "warnings": warnings}
+
+    plan_items = report.get("plan", []) or []
+    if not isinstance(plan_items, list) or not plan_items:
+        return {"report": report, "warnings": warnings}
+
+    allergen_classes = _extract_allergen_names(patient_data)
+    if not allergen_classes:
+        return {"report": report, "warnings": warnings}
+
+    prescribed_drugs = _extract_plan_medications(plan_items)
+    if not prescribed_drugs:
+        return {"report": report, "warnings": warnings}
+
+    # Cross-check: for each prescribed drug, does it belong to an allergen class?
+    conflicts: list[tuple[str, str]] = []  # (allergen_class, prescribed_drug)
+    for drug in prescribed_drugs:
+        for allergen_class in allergen_classes:
+            members = ALLERGY_CLASS_GROUPS.get(allergen_class, set())
+            if drug in members:
+                conflicts.append((allergen_class, drug))
+                break
+
+    if not conflicts:
+        return {"report": report, "warnings": warnings}
+
+    # Emit warnings and prepend to sinais_alarme (most visible position)
+    sinais_alarme = report.get("sinais_alarme", []) or []
+    if not isinstance(sinais_alarme, list):
+        sinais_alarme = []
+
+    for allergen_class, drug in conflicts:
+        warning_msg = (
+            f"\u26a0 ALERTA DE ALERGIA: paciente alérgico a {allergen_class}; "
+            f"medicação {drug} prescrita no plano pode causar reação."
+        )
+        sinais_alarme.insert(0, warning_msg)
+        warnings.append(warning_msg)
+        logger.warning("check_allergy_safety: %s", warning_msg)
+
+    report["sinais_alarme"] = sinais_alarme
 
     return {"report": report, "warnings": warnings}
 

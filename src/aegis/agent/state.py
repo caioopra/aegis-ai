@@ -23,7 +23,7 @@ class AgentState(TypedDict, total=False):
     # After parse_note
     extracted_entities: list[dict[str, str]]
     patient_id: str
-    patient_id_match_type: Literal["exact", "partial", "fallback", "none"]
+    patient_id_match_type: Literal["exact", "partial", "cpf", "none"]
 
     # After decide_retrieval
     needs_retrieval: bool

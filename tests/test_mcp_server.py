@@ -8,6 +8,9 @@ from unittest.mock import patch
 import pytest
 
 from aegis.mcp_server import (
+    BRAND_TO_GENERIC,
+    DRUG_INTERACTION_DISCLAIMER,
+    DRUG_INTERACTIONS,
     _format_allergy,
     _format_condition,
     _format_diagnostic_report,
@@ -18,6 +21,7 @@ from aegis.mcp_server import (
     _format_patient,
     _format_procedure,
     _normalize_drug_name,
+    buscar_paciente_cpf,
     consultar_alergias,
     consultar_condicoes,
     consultar_encontros,
@@ -658,3 +662,147 @@ class TestConsultarAlergias:
         with _patch_store(loaded_store):
             result = consultar_alergias("nonexistent")
         assert "Nenhuma alergia" in result
+
+    def test_penicillin_snomed_regression(self, loaded_store: FHIRStore):
+        """Regression: penicillin allergy SNOMED code must be 91936005 (not 7980)."""
+        allergies = loaded_store.get_allergy_intolerances(PATIENT_ID)
+        penicillin = next(a for a in allergies if a["code"]["text"] == "Penicilina")
+        coding = penicillin["code"]["coding"][0]
+        assert coding["code"] == "91936005"
+
+
+# ------------------------------------------------------------------
+# Drug interactions — new pairs and brand mapping (Phase 12 Step 7)
+# ------------------------------------------------------------------
+
+
+class TestDrugInteractionExpansion:
+    """Verify the 10 new interaction pairs added in Phase 12."""
+
+    def test_espironolactona_metformina(self):
+        result = verificar_interacao_medicamentosa("espironolactona", "metformina")
+        assert "hipercalemia" in result.lower()
+
+    def test_carvedilol_metformina(self):
+        result = verificar_interacao_medicamentosa("carvedilol", "metformina")
+        assert "hipoglicemia" in result.lower()
+
+    def test_dapagliflozina_hidroclorotiazida(self):
+        result = verificar_interacao_medicamentosa("dapagliflozina", "hidroclorotiazida")
+        assert "volêmica" in result.lower() or "hipotensão" in result.lower()
+
+    def test_losartana_dapagliflozina(self):
+        result = verificar_interacao_medicamentosa("losartana", "dapagliflozina")
+        assert "hipotensão" in result.lower()
+
+    def test_digoxina_espironolactona(self):
+        result = verificar_interacao_medicamentosa("digoxina", "espironolactona")
+        assert "digitálica" in result.lower()
+
+    def test_carvedilol_verapamil(self):
+        result = verificar_interacao_medicamentosa("carvedilol", "verapamil")
+        assert "bradicardia" in result.lower()
+
+    def test_varfarina_amiodarona(self):
+        result = verificar_interacao_medicamentosa("varfarina", "amiodarona")
+        assert "anticoagulante" in result.lower() or "inr" in result.lower()
+
+    def test_clopidogrel_omeprazol(self):
+        result = verificar_interacao_medicamentosa("clopidogrel", "omeprazol")
+        assert "clopidogrel" in result.lower() or "pantoprazol" in result.lower()
+
+    def test_total_interaction_pairs_at_least_18(self):
+        assert len(DRUG_INTERACTIONS) >= 18
+
+
+class TestBrandToGenericMapping:
+    """Verify brand name resolution in interaction lookup."""
+
+    def test_brand_to_generic_dict_exists(self):
+        assert isinstance(BRAND_TO_GENERIC, dict)
+        assert len(BRAND_TO_GENERIC) >= 10
+
+    def test_normalize_resolves_aradois_to_losartana(self):
+        from aegis.mcp_server import _normalize_drug_name
+
+        assert _normalize_drug_name("Aradois") == "losartana"
+
+    def test_normalize_resolves_forxiga_to_dapagliflozina(self):
+        from aegis.mcp_server import _normalize_drug_name
+
+        assert _normalize_drug_name("forxiga") == "dapagliflozina"
+
+    def test_normalize_resolves_aldactone_to_espironolactona(self):
+        from aegis.mcp_server import _normalize_drug_name
+
+        assert _normalize_drug_name("Aldactone") == "espironolactona"
+
+    def test_brand_lookup_finds_interaction_aradois_espironolactona(self):
+        """aradois → losartana, which has a known interaction with espironolactona."""
+        result = verificar_interacao_medicamentosa("aradois", "espironolactona")
+        assert "hipercalemia" in result.lower()
+
+    def test_unknown_brand_passes_through(self):
+        from aegis.mcp_server import _normalize_drug_name
+
+        assert _normalize_drug_name("medicamento_desconhecido") == "medicamento_desconhecido"
+
+
+class TestDrugInteractionDisclaimer:
+    """Verify DRUG_INTERACTION_DISCLAIMER appears in every interaction response."""
+
+    def test_disclaimer_constant_exists(self):
+        assert "educacional" in DRUG_INTERACTION_DISCLAIMER.lower()
+        assert "farmacovigilância" in DRUG_INTERACTION_DISCLAIMER.lower()
+
+    def test_disclaimer_in_known_interaction(self):
+        result = verificar_interacao_medicamentosa("losartana", "espironolactona")
+        assert DRUG_INTERACTION_DISCLAIMER in result
+
+    def test_disclaimer_in_no_interaction(self):
+        result = verificar_interacao_medicamentosa("losartana", "paracetamol")
+        assert DRUG_INTERACTION_DISCLAIMER in result
+
+    def test_disclaimer_in_new_pair(self):
+        result = verificar_interacao_medicamentosa("varfarina", "amiodarona")
+        assert DRUG_INTERACTION_DISCLAIMER in result
+
+
+# ------------------------------------------------------------------
+# buscar_paciente_cpf (Step 8)
+# ------------------------------------------------------------------
+
+
+class TestBuscarPacienteCpf:
+    """Verify the buscar_paciente_cpf MCP tool."""
+
+    def test_cpf_formatted_finds_joao(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store):
+            result = buscar_paciente_cpf("111.111.111-11")
+        assert "João Carlos Silva" in result
+
+    def test_cpf_unformatted_finds_joao(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store):
+            result = buscar_paciente_cpf("11111111111")
+        assert "João Carlos Silva" in result
+
+    def test_cpf_dots_no_dash_finds_joao(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store):
+            result = buscar_paciente_cpf("111.111.11111")
+        assert "João Carlos Silva" in result
+
+    def test_cpf_not_found(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store):
+            result = buscar_paciente_cpf("999.999.999-99")
+        assert "Nenhum paciente" in result
+
+    def test_cpf_empty_not_found(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store):
+            result = buscar_paciente_cpf("")
+        assert "Nenhum paciente" in result
+
+    def test_returns_demographics(self, loaded_store: FHIRStore):
+        with _patch_store(loaded_store):
+            result = buscar_paciente_cpf("111.111.111-11")
+        assert "Masculino" in result
+        assert "1960-03-15" in result

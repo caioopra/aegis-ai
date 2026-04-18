@@ -36,10 +36,10 @@ class TestLoadBundle:
         assert len(store.get_conditions(PATIENT_ID)) == 3
 
     def test_load_indexes_medications(self, store: FHIRStore):
-        assert len(store.get_medications(PATIENT_ID)) == 3
+        assert len(store.get_medications(PATIENT_ID)) == 6
 
     def test_load_indexes_observations(self, store: FHIRStore):
-        assert len(store.get_observations(PATIENT_ID)) == 4
+        assert len(store.get_observations(PATIENT_ID)) >= 11
 
     def test_load_rejects_non_bundle(self, tmp_path: Path):
         bad = tmp_path / "bad.json"
@@ -121,24 +121,33 @@ class TestGetMedications:
 
     def test_medication_count(self, store: FHIRStore):
         meds = store.get_medications(PATIENT_ID)
-        assert len(meds) == 3
+        assert len(meds) == 6
 
     def test_medication_has_name(self, store: FHIRStore):
         meds = store.get_medications(PATIENT_ID)
         texts = [m["medicationCodeableConcept"]["text"] for m in meds]
         assert "Losartana 50mg" in texts
         assert "Metformina 850mg" in texts
+        assert "Carvedilol 25mg" in texts
+        assert "Espironolactona 25mg" in texts
+        assert "Dapagliflozina 10mg" in texts
+
+    def test_all_medications_have_intent_order(self, store: FHIRStore):
+        meds = store.get_medications(PATIENT_ID)
+        for med in meds:
+            assert med.get("intent") == "order", f"med {med['id']} missing intent=order"
 
     def test_empty_for_unknown_patient(self, store: FHIRStore):
         assert store.get_medications("nonexistent") == []
 
 
 class TestGetObservations:
-    """Verify observation (vital signs) lookups return expected data."""
+    """Verify observation (vital signs + labs + FEVE) lookups return expected data."""
 
     def test_observation_count(self, store: FHIRStore):
         obs = store.get_observations(PATIENT_ID)
-        assert len(obs) == 4
+        # 4 vitals + 1 FEVE + 6 labs = 11
+        assert len(obs) == 11
 
     def test_observation_has_vital_sign(self, store: FHIRStore):
         obs = store.get_observations(PATIENT_ID)
@@ -147,6 +156,21 @@ class TestGetObservations:
         assert "Frequência cardíaca" in texts
         assert "Peso" in texts
         assert "Altura" in texts
+
+    def test_observation_has_feve(self, store: FHIRStore):
+        obs = store.get_observations(PATIENT_ID)
+        texts = [o["code"]["text"] for o in obs]
+        assert "Fração de ejeção do ventrículo esquerdo (FEVE)" in texts
+
+    def test_observation_has_lab_results(self, store: FHIRStore):
+        obs = store.get_observations(PATIENT_ID)
+        texts = [o["code"]["text"] for o in obs]
+        assert "Creatinina sérica" in texts
+        assert "Potássio sérico" in texts
+        assert "Glicemia de jejum" in texts
+        assert "Hemoglobina glicada (HbA1c)" in texts
+        assert "LDL colesterol" in texts
+        assert "Peptídeo natriurético tipo B (BNP)" in texts
 
     def test_empty_for_unknown_patient(self, store: FHIRStore):
         assert store.get_observations("nonexistent") == []
@@ -451,3 +475,43 @@ class TestPatientReferenceResolution:
         s = FHIRStore()
         s.load_bundle(path)
         assert len(s.get_immunizations("p1")) == 1
+
+
+# ------------------------------------------------------------------
+# CPF lookup (Step 8)
+# ------------------------------------------------------------------
+
+
+class TestGetPatientByCpf:
+    """Verify get_patient_by_cpf handles formatted and unformatted CPFs."""
+
+    def test_get_patient_by_cpf_exact_formatted(self, store: FHIRStore):
+        patient = store.get_patient_by_cpf("111.111.111-11")
+        assert patient is not None
+        assert patient["id"] == PATIENT_ID
+
+    def test_get_patient_by_cpf_unformatted(self, store: FHIRStore):
+        patient = store.get_patient_by_cpf("11111111111")
+        assert patient is not None
+        assert patient["id"] == PATIENT_ID
+
+    def test_get_patient_by_cpf_with_dots_no_dash(self, store: FHIRStore):
+        patient = store.get_patient_by_cpf("111.111.11111")
+        assert patient is not None
+        assert patient["id"] == PATIENT_ID
+
+    def test_get_patient_by_cpf_not_found(self, store: FHIRStore):
+        patient = store.get_patient_by_cpf("999.999.999-99")
+        assert patient is None
+
+    def test_get_patient_by_cpf_empty(self, store: FHIRStore):
+        patient = store.get_patient_by_cpf("")
+        assert patient is None
+
+    def test_penicillin_allergy_snomed_code_is_correct(self, store: FHIRStore):
+        """Regression: penicillin allergy must use SNOMED 91936005, not 7980."""
+        allergies = store.get_allergy_intolerances(PATIENT_ID)
+        penicillin = next(a for a in allergies if a["code"]["text"] == "Penicilina")
+        coding = penicillin["code"]["coding"][0]
+        assert coding["code"] == "91936005"
+        assert coding["system"] == "http://snomed.info/sct"

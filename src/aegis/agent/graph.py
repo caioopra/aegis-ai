@@ -1,10 +1,9 @@
 """LangGraph state graph for the clinical agent.
 
-Flow: parse → decide → fan-out [retrieve + fetch | fetch only] → generate → evaluate
-                                                                       ↑         │
-                                                                       └─────────┘
-                                                                     (retry if score < 3,
-                                                                      max 2 retries)
+Flow: parse → decide → fan-out [retrieve + fetch | fetch only] → generate → check_allergy → evaluate
+                                                                       ↑                              │
+                                                                       └──────────────────────────────┘
+                                                                     (retry if score < 3, max 2 retries)
 
 When ``needs_retrieval=True``, ``retrieve_guidelines`` and ``fetch_patient_data``
 run **in parallel** (fan-out) since they are independent — RAG uses queries while
@@ -19,6 +18,7 @@ from typing import Any
 from langgraph.graph import END, StateGraph
 
 from aegis.agent.nodes import (
+    check_allergy_safety,
     decide_retrieval,
     evaluate_report,
     fetch_patient_data,
@@ -82,6 +82,7 @@ def build_graph(checkpointer: Any | None = None) -> StateGraph:
     graph.add_node("retrieve_guidelines", retrieve_guidelines)
     graph.add_node("fetch_patient_data", fetch_patient_data)
     graph.add_node("generate_report", generate_report)
+    graph.add_node("check_allergy_safety", check_allergy_safety)
     graph.add_node("evaluate_report", evaluate_report)
     graph.add_node("increment_retry", _increment_retry)
 
@@ -103,7 +104,8 @@ def build_graph(checkpointer: Any | None = None) -> StateGraph:
     graph.add_edge("retrieve_guidelines", "generate_report")
     graph.add_edge("fetch_patient_data", "generate_report")
 
-    graph.add_edge("generate_report", "evaluate_report")
+    graph.add_edge("generate_report", "check_allergy_safety")
+    graph.add_edge("check_allergy_safety", "evaluate_report")
 
     # Retry loop: evaluate → (retry | END)
     graph.add_conditional_edges(

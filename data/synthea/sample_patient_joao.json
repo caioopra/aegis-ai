@@ -6,6 +6,12 @@
       "resource": {
         "resourceType": "Patient",
         "id": "patient-joao-001",
+        "identifier": [
+          {
+            "system": "urn:oid:2.16.840.1.113883.13.237",
+            "value": "111.111.111-11"
+          }
+        ],
         "name": [
           {
             "use": "official",
@@ -115,11 +121,12 @@
         "resourceType": "MedicationRequest",
         "id": "med-001",
         "status": "active",
+        "intent": "order",
         "medicationCodeableConcept": {
           "coding": [
             {
               "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-              "code": "979480",
+              "code": "979492",
               "display": "Losartan potassium 50 MG Oral Tablet"
             }
           ],
@@ -147,6 +154,7 @@
         "resourceType": "MedicationRequest",
         "id": "med-002",
         "status": "active",
+        "intent": "order",
         "medicationCodeableConcept": {
           "coding": [
             {
@@ -179,11 +187,12 @@
         "resourceType": "MedicationRequest",
         "id": "med-003",
         "status": "active",
+        "intent": "order",
         "medicationCodeableConcept": {
           "coding": [
             {
               "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
-              "code": "860975",
+              "code": "860999",
               "display": "Metformin hydrochloride 850 MG Oral Tablet"
             }
           ],
@@ -198,6 +207,105 @@
             "timing": {
               "repeat": {
                 "frequency": 2,
+                "period": 1,
+                "periodUnit": "d"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-004",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "200033",
+              "display": "Carvedilol 25 MG Oral Tablet"
+            }
+          ],
+          "text": "Carvedilol 25mg"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "dosageInstruction": [
+          {
+            "text": "1 comprimido 2x ao dia",
+            "timing": {
+              "repeat": {
+                "frequency": 2,
+                "period": 1,
+                "periodUnit": "d"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-005",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "313096",
+              "display": "Spironolactone 25 MG Oral Tablet"
+            }
+          ],
+          "text": "Espironolactona 25mg"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "dosageInstruction": [
+          {
+            "text": "1 comprimido 1x ao dia",
+            "timing": {
+              "repeat": {
+                "frequency": 1,
+                "period": 1,
+                "periodUnit": "d"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-006",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+              "code": "1486977",
+              "display": "Dapagliflozin 10 MG Oral Tablet [Farxiga]"
+            }
+          ],
+          "text": "Dapagliflozina 10mg"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "dosageInstruction": [
+          {
+            "text": "1 comprimido 1x ao dia",
+            "timing": {
+              "repeat": {
+                "frequency": 1,
                 "period": 1,
                 "periodUnit": "d"
               }
@@ -387,6 +495,272 @@
           "unit": "cm",
           "system": "http://unitsofmeasure.org",
           "code": "cm"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-feve-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "imaging",
+                "display": "Imaging"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "10230-1",
+              "display": "Left ventricular Ejection fraction"
+            }
+          ],
+          "text": "Fração de ejeção do ventrículo esquerdo (FEVE)"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 35,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-lab-creat-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2160-0",
+              "display": "Creatinine [Mass/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "Creatinina sérica"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 1.3,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-lab-potassio-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2823-3",
+              "display": "Potassium [Moles/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "Potássio sérico"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 4.5,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-lab-glicemia-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "1558-6",
+              "display": "Fasting glucose [Mass/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "Glicemia de jejum"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 145,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-lab-hba1c-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+            }
+          ],
+          "text": "Hemoglobina glicada (HbA1c)"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 7.8,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-lab-ldl-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2089-1",
+              "display": "LDL Cholesterol [Mass/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "LDL colesterol"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 118,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-lab-bnp-001",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "30934-4",
+              "display": "Natriuretic peptide B [Mass/volume] in Serum or Plasma"
+            }
+          ],
+          "text": "Peptídeo natriurético tipo B (BNP)"
+        },
+        "subject": {
+          "reference": "Patient/patient-joao-001"
+        },
+        "effectiveDateTime": "2025-01-10",
+        "valueQuantity": {
+          "value": 420,
+          "unit": "pg/mL",
+          "system": "http://unitsofmeasure.org",
+          "code": "pg/mL"
         }
       }
     },
@@ -609,8 +983,8 @@
           "coding": [
             {
               "system": "http://snomed.info/sct",
-              "code": "7980",
-              "display": "Penicillin"
+              "code": "91936005",
+              "display": "Allergy to penicillin"
             }
           ],
           "text": "Penicilina"
